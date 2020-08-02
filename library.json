@@ -1,0 +1,25 @@
+{
+    "name": "ArduinoMSGraph",
+    "version": "0.1.0",
+    "description": "A library to wrap the Microsoft Graph API (supports ESP8266/ESP32 & others)",
+    "keywords": "communication, microsoft, arduino, library, esp32",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/toblum/ArduinoMSGraph.git"
+    },
+    "authors": [
+        {
+            "name": "Tobias Blum",
+            "email": "dev@tobiasblum.de",
+            "url": "https://github.com/toblum",
+            "maintainer": true
+        }
+    ],
+    "license": "MIT",
+    "homepage": "https://github.com/toblum/ArduinoMSGraph",
+    "dependencies": {
+        "ArduinoJson": "^6.16.0"
+    },
+    "frameworks": "arduino",
+    "platforms": "*"
+}
