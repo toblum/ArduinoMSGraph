@@ -55,9 +55,6 @@ boolean ArduinoMSGraph::requestJsonApi(JsonDocument& doc, String url, String pay
 
 				// Parse JSON data
 				DeserializationError error = deserializeJson(doc, https.getStream());
-				// this->client->stop();
-				// delete this->client;
-				// this->client = NULL;
 				
 				if (error) {
 					DBG_PRINT(F("deserializeJson() failed: "));
@@ -123,7 +120,6 @@ bool ArduinoMSGraph::pollForToken(JsonDocument &responseDoc, const char *device_
     sprintf(url,"https://login.microsoftonline.com/%s/oauth2/v2.0/token", this->_tenant);
 	char payload[512];
     sprintf(payload,"client_id=%s&grant_type=urn:ietf:params:oauth:grant-type:device_code&device_code=%s", this->_clientId, device_code);
-	DBG_PRINTLN(payload);
 
 	bool res = requestJsonApi(responseDoc, url, payload);
 
