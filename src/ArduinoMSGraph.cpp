@@ -55,9 +55,6 @@ boolean ArduinoMSGraph::requestJsonApi(JsonDocument& doc, String url, String pay
 
 				// Parse JSON data
 				DeserializationError error = deserializeJson(doc, https.getStream());
-				// this->client->stop();
-				// delete this->client;
-				// this->client = NULL;
 				
 				if (error) {
 					DBG_PRINT(F("deserializeJson() failed: "));
@@ -89,21 +86,65 @@ boolean ArduinoMSGraph::requestJsonApi(JsonDocument& doc, String url, String pay
 /**
  * Start the device login flow and request login page data.
  * 
- * @param doc JsonDocument passed as reference to hold the result.
+ * @param responseDoc JsonDocument passed as reference to hold the result.
+ * Reserve a size of at least: JSON_OBJECT_SIZE(6) + 540
  * @param scope The scope to request from Azure AD.
- * @returns void
+ * @returns True if request successful, false on error
  */
-void ArduinoMSGraph::startDeviceLoginFlow(JsonDocument &doc, const char *scope) {
+bool ArduinoMSGraph::startDeviceLoginFlow(JsonDocument &responseDoc, const char *scope) {
 	DBG_PRINT(F("startDeviceLoginFlow() - "));
 	DBG_PRINTLN(scope);
 
 	char url[255];
     sprintf(url,"https://login.microsoftonline.com/%s/oauth2/v2.0/devicecode", this->_tenant);
 	char payload[255];
-    sprintf(payload,"client_id=%s&scope=scope", this->_clientId, scope);
+    sprintf(payload,"client_id=%s&scope=%s", this->_clientId, scope);
 
-	boolean res = requestJsonApi(doc, url, payload);
+	bool res = requestJsonApi(responseDoc, url, payload);
+	return res;
 }
+
+
+/**
+ * Poll for the authentication token. Do this until the user has completed authentication.
+ * 
+ * @param responseDoc JsonDocument passed as reference to hold the result.
+ * Reserve a size of at least: JSON_ARRAY_SIZE(1) + JSON_OBJECT_SIZE(7) + 530, better: 10000
+ * @param device_code The device code to poll for.
+ * @returns True if token is available, if false, continue polling.
+ */
+bool ArduinoMSGraph::pollForToken(JsonDocument &responseDoc, const char *device_code) {
+	DBG_PRINTLN(F("pollForToken()"));
+
+	char url[255];
+    sprintf(url,"https://login.microsoftonline.com/%s/oauth2/v2.0/token", this->_tenant);
+	char payload[512];
+    sprintf(payload,"client_id=%s&grant_type=urn:ietf:params:oauth:grant-type:device_code&device_code=%s", this->_clientId, device_code);
+
+	bool res = requestJsonApi(responseDoc, url, payload);
+
+	if (!res) {
+		return false;
+	} else if (responseDoc.containsKey("error")) {
+		const char* _error = responseDoc["error"];
+		const char* _error_description = responseDoc["error_description"];
+
+		if (strcmp(_error, "authorization_pending") == 0) {
+			Serial.printf("pollForToken() - Wating for authorization by user: %s\n\n", _error_description);
+		} else {
+			Serial.printf("pollForToken() - Unexpected error: %s, %s\n\n", _error, _error_description);
+		}
+		return false;
+	} else {
+		if (responseDoc.containsKey("access_token") && responseDoc.containsKey("refresh_token")) {
+			return true;
+		} else {
+			DBG_PRINTLN("pollForToken() - Not all expected keys (access_token, refresh_token) found.");
+			return false;
+		}
+	}
+}
+
 
 int ArduinoMSGraph::getTokenLifetime() {
 	return (_tokenExpires - millis()) / 1000;
