@@ -36,7 +36,8 @@ public:
     int getTokenLifetime();
 
     // Authentication Methods
-    void startDeviceLoginFlow(JsonDocument &doc, const char *scope = "offline_access%20openid%20Presence.Read");
+    bool startDeviceLoginFlow(JsonDocument &doc, const char *scope = "offline_access%20openid%20Presence.Read");
+    bool pollForToken(JsonDocument &doc, const char *device_code);
 
     // // User methods
     // CurrentlyPlaying getCurrentlyPlaying(const char *market = "");
