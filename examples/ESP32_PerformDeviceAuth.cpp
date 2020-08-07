@@ -2,13 +2,17 @@
 #include <ArduinoMSGraph.h>
 #include <WiFiClientSecure.h>
 
-char ssid[] = "";		// your network SSID (name)
-char password[] = "";	// your network password
-char clientId[] = ""; 	// Azure app client id
-char tenant[] = "contoso.onmicrosoft.com"; // Tenant guid or name
+#include "credentials.h"
 
 WiFiClientSecure client;
 ArduinoMSGraph graphClient(client, tenant, clientId);
+
+bool tokenReceived = false;
+const char *deviceCode;
+
+const size_t capacity = JSON_OBJECT_SIZE(6) + 540;
+DynamicJsonDocument deviceCodeDoc(capacity);
+DynamicJsonDocument pollingDoc(10000);
 
 void setup()
 {
@@ -31,13 +35,41 @@ void setup()
 	IPAddress ipAddress = WiFi.localIP();
 	Serial.println(ipAddress);
 
-	const size_t capacity = JSON_OBJECT_SIZE(6) + 540;
-	DynamicJsonDocument doc(capacity);
-	graphClient.startDeviceLoginFlow(doc);
+	// Start device login flow
+	graphClient.startDeviceLoginFlow(deviceCodeDoc);
 
-	Serial.println(doc.as<String>());
+	// Serial.println(doc.as<String>());
+
+	// Consume result
+	deviceCode = deviceCodeDoc["device_code"].as<const char*>();
+	const char *user_code = deviceCodeDoc["user_code"].as<const char*>();
+	const char *verification_uri = deviceCodeDoc["verification_uri"].as<const char*>();
+	const char *message = deviceCodeDoc["message"].as<const char*>();
+
+	Serial.print("deviceCode: ");
+	Serial.println(deviceCode);
+	Serial.print("user_code: ");
+	Serial.println(user_code);
+	Serial.print("verification_uri: ");
+	Serial.println(verification_uri);
+	Serial.print("message: ");
+	Serial.println(message);
 }
 
 void loop()
 {
+	if (!tokenReceived) {
+		DBG_PRINTLN();
+		DBG_PRINTLN("##########################################");
+		bool res = graphClient.pollForToken(pollingDoc, deviceCode);
+
+		if (res) {
+			DBG_PRINTLN("GOT ACCESS TOKEN!");
+			DBG_PRINTLN(pollingDoc["access_token"].as<String>());
+			tokenReceived = true;
+		} else {
+			DBG_PRINTLN("No token received, continue polling.");
+			delay(10000);
+		}
+	}
 }
