@@ -2,12 +2,13 @@
 #include <ArduinoMSGraph.h>
 #include <WiFiClientSecure.h>
 
-char ssid[] = "";							  // your network SSID (name)
-char password[] = "";					  // your network password
-char clientId[] = ""; // your network password
+char ssid[] = "";		// your network SSID (name)
+char password[] = "";	// your network password
+char clientId[] = ""; 	// Azure app client id
+char tenant[] = "contoso.onmicrosoft.com"; // Tenant guid or name
 
 WiFiClientSecure client;
-ArduinoMSGraph graphClient(client, clientId);
+ArduinoMSGraph graphClient(client, tenant, clientId);
 
 void setup()
 {
@@ -30,10 +31,9 @@ void setup()
 	IPAddress ipAddress = WiFi.localIP();
 	Serial.println(ipAddress);
 
-	// client.setCACert(rootCACertificateLogin);
-
-	DynamicJsonDocument doc(10000);
-	boolean res = graphClient.requestJsonApi(doc, "https://login.microsoftonline.com/contoso.onmicrosoft.com/oauth2/v2.0/devicecode", "client_id=6cc6d040-79b6-48c7-ae23-1c6c436428ce&scope=offline_access%20openid%20Presence.Read");
+	const size_t capacity = JSON_OBJECT_SIZE(6) + 540;
+	DynamicJsonDocument doc(capacity);
+	graphClient.startDeviceLoginFlow(doc);
 
 	Serial.println(doc.as<String>());
 }

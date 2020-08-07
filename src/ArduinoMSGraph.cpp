@@ -1,9 +1,10 @@
 #include "ArduinoMSGraph.h"
 #include "ArduinoMSGraphCerts.h"
 
-ArduinoMSGraph::ArduinoMSGraph(Client &client, const char *clientId)
+ArduinoMSGraph::ArduinoMSGraph(Client &client, const char *tenant, const char *clientId)
 {
     this->client = &client;
+    this->_tenant = tenant;
     this->_clientId = clientId;
 }
 
@@ -82,6 +83,26 @@ boolean ArduinoMSGraph::requestJsonApi(JsonDocument& doc, String url, String pay
     	DBG_PRINTLN(F("[HTTPS] Unable to connect"));
 		return false;
     }
+}
+
+
+/**
+ * Start the device login flow and request login page data.
+ * 
+ * @param doc JsonDocument passed as reference to hold the result.
+ * @param scope The scope to request from Azure AD.
+ * @returns void
+ */
+void ArduinoMSGraph::startDeviceLoginFlow(JsonDocument &doc, const char *scope) {
+	DBG_PRINT(F("startDeviceLoginFlow() - "));
+	DBG_PRINTLN(scope);
+
+	char url[255];
+    sprintf(url,"https://login.microsoftonline.com/%s/oauth2/v2.0/devicecode", this->_tenant);
+	char payload[255];
+    sprintf(payload,"client_id=%s&scope=scope", this->_clientId, scope);
+
+	boolean res = requestJsonApi(doc, url, payload);
 }
 
 int ArduinoMSGraph::getTokenLifetime() {

@@ -16,7 +16,7 @@
 class ArduinoMSGraph
 {
 public:
-    ArduinoMSGraph(Client &client, const char *clientId);
+    ArduinoMSGraph(Client &client, const char *tenant, const char *clientId);
     // ArduinoSpotify(Client &client, const char *clientId, const char *clientSecret, const char *refreshToken = "");
 
     // // Auth Methods
@@ -34,6 +34,9 @@ public:
 
     // Helper
     int getTokenLifetime();
+
+    // Authentication Methods
+    void startDeviceLoginFlow(JsonDocument &doc, const char *scope = "offline_access%20openid%20Presence.Read");
 
     // // User methods
     // CurrentlyPlaying getCurrentlyPlaying(const char *market = "");
@@ -64,6 +67,7 @@ private:
     // char _bearerToken[200];
     // const char *_refreshToken;
     const char *_clientId;
+    const char *_tenant;
     const char *_bearerToken;
 
     unsigned int _tokenExpires = 0;
