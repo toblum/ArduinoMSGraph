@@ -8,7 +8,18 @@ ArduinoMSGraph::ArduinoMSGraph(Client &client, const char *tenant, const char *c
     this->_clientId = clientId;
 }
 
-boolean ArduinoMSGraph::requestJsonApi(JsonDocument& doc, String url, String payload, String type, boolean sendAuth) {
+
+/**
+ * Perform a HTTP request.
+ * 
+ * @param responseDoc JsonDocument passed as reference to hold the result.
+ * @param url URL to request
+ * @param payload Raw payload to send together with the request.
+ * @param method Method for the HTTP request: GET, POST, ...
+ * @param sendAuth If true, send the Bearer token together with the request.
+ * @returns True if request successful, false on error.
+ */
+boolean ArduinoMSGraph::requestJsonApi(JsonDocument& responseDoc, String url, String payload, String method, boolean sendAuth) {
     const char* cert;
     if (url.indexOf("graph.microsoft.com") > -1) {
 		cert = rootCACertificateGraph;
@@ -36,7 +47,7 @@ boolean ArduinoMSGraph::requestJsonApi(JsonDocument& doc, String url, String pay
 
 		// Start connection and send HTTP header
 		int httpCode = 0;
-		if (type == "POST") {
+		if (method == "POST") {
 			httpCode = https.POST(payload);
 		} else {
 			httpCode = https.GET();
@@ -45,7 +56,7 @@ boolean ArduinoMSGraph::requestJsonApi(JsonDocument& doc, String url, String pay
 		// httpCode will be negative on error
 		if (httpCode > 0) {
 			// HTTP header has been send and Server response header has been handled
-			Serial.printf("[HTTPS] Method: %s, Response code: %d\n", type.c_str(), httpCode);
+			Serial.printf("[HTTPS] Method: %s, Response code: %d\n", method.c_str(), httpCode);
 
 			// File found at server (HTTP 200, 301), or HTTP 400 with response payload
 			if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY || httpCode == HTTP_CODE_BAD_REQUEST) {
@@ -54,7 +65,7 @@ boolean ArduinoMSGraph::requestJsonApi(JsonDocument& doc, String url, String pay
                 // DBG_PRINTLN(payload);
 
 				// Parse JSON data
-				DeserializationError error = deserializeJson(doc, https.getStream());
+				DeserializationError error = deserializeJson(responseDoc, https.getStream());
 				
 				if (error) {
 					DBG_PRINT(F("deserializeJson() failed: "));
@@ -147,7 +158,7 @@ bool ArduinoMSGraph::pollForToken(JsonDocument &responseDoc, const char *device_
 
 
 /**
- * Poll for the authentication token. Do this until the user has completed authentication.
+ * Save the required context variables from responseDoc in a JSON file in SPIFFS.
  * 
  * @param responseDoc JsonDocument passed as reference to hold the result.
  * @returns True if saving was successful.

@@ -29,7 +29,7 @@ public:
     // const char *requestAccessTokens(const char *code, const char *redirectUrl);
 
     // // Generic Request Methods
-    boolean requestJsonApi(JsonDocument &doc, String url, String payload = "", String type = "POST", boolean sendAuth = false);
+    boolean requestJsonApi(JsonDocument &doc, String url, String payload = "", String method = "POST", boolean sendAuth = false);
     // int makeGetRequest(const char *command, const char *authorization, const char *accept = "application/json", const char *host = SPOTIFY_HOST);
     // int makeRequestWithBody(const char *type, const char *command, const char *authorization, const char *body = "", const char *contentType = "application/json", const char *host = SPOTIFY_HOST);
     // int makePostRequest(const char *command, const char *authorization, const char *body = "", const char *contentType = "application/json", const char *host = SPOTIFY_HOST);
