@@ -2,15 +2,18 @@
     Copyright (c) 2020 Tobias Blum. All right reserved.
 */
 
+#ifndef ArduinoMSGraph_h
+#define ArduinoMSGraph_h
+
 #define DBG_PRINT(x) Serial.print(x)
 #define DBG_PRINTLN(x) Serial.println(x)
 
-#ifndef ArduinoMSGraph_h
-#define ArduinoMSGraph_h
+#define CONTEXT_FILE "/graph_context.json"			// Filename of the context file
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
+#include "SPIFFS.h"
 
 
 class ArduinoMSGraph
@@ -34,6 +37,9 @@ public:
 
     // Helper
     int getTokenLifetime();
+
+    // SPIFFS Helper
+    bool saveContextInSPIFFS(JsonDocument &doc);
 
     // Authentication Methods
     bool startDeviceLoginFlow(JsonDocument &doc, const char *scope = "offline_access%20openid%20Presence.Read");

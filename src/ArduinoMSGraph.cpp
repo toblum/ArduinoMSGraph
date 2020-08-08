@@ -146,6 +146,33 @@ bool ArduinoMSGraph::pollForToken(JsonDocument &responseDoc, const char *device_
 }
 
 
+/**
+ * Poll for the authentication token. Do this until the user has completed authentication.
+ * 
+ * @param responseDoc JsonDocument passed as reference to hold the result.
+ * @returns True if saving was successful.
+ */
+bool ArduinoMSGraph::saveContextInSPIFFS(JsonDocument &responseDoc) {
+	const size_t capacity = JSON_OBJECT_SIZE(3) + 5000;
+	DynamicJsonDocument contextDoc(capacity);
+
+	contextDoc["access_token"] = responseDoc["access_token"].as<const char*>();
+	contextDoc["refresh_token"] = responseDoc["refresh_token"].as<const char*>();
+	contextDoc["id_token"] = responseDoc["id_token"].as<const char*>();
+
+	File contextFile = SPIFFS.open(CONTEXT_FILE, FILE_WRITE);
+	size_t bytesWritten = serializeJsonPretty(contextDoc, contextFile);
+	contextFile.close();
+	DBG_PRINT(F("saveContextInSPIFFS() - Success - Bytes written: "));
+	DBG_PRINTLN(bytesWritten);
+	// DBG_PRINTLN(contextDoc.as<String>());
+
+	return bytesWritten > 0;
+}
+
+
+
+
 int ArduinoMSGraph::getTokenLifetime() {
 	return (_tokenExpires - millis()) / 1000;
 }

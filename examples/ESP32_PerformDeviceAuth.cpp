@@ -18,6 +18,12 @@ void setup()
 {
 	Serial.begin(115200);
 
+	// Init SPIFFS
+	if(!SPIFFS.begin(true)){
+		Serial.println("An Error has occurred while mounting SPIFFS");
+		return;
+	}
+
 	WiFi.mode(WIFI_STA);
 	WiFi.begin(ssid, password);
 	Serial.println("");
@@ -66,6 +72,8 @@ void loop()
 		if (res) {
 			DBG_PRINTLN("GOT ACCESS TOKEN!");
 			DBG_PRINTLN(pollingDoc["access_token"].as<String>());
+
+			graphClient.saveContextInSPIFFS(pollingDoc);
 			tokenReceived = true;
 		} else {
 			DBG_PRINTLN("No token received, continue polling.");
