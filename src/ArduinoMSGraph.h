@@ -15,21 +15,34 @@
 #include <HTTPClient.h>
 #include "SPIFFS.h"
 
+struct GraphError {
+	bool hasError;
+	String message;
+};
 
-struct GraphContext
-{
-	const char *access_token;
-	const char *refresh_token;
-	const char *id_token;
+struct GraphAuthContext {
+	String access_token;
+	String refresh_token;
+	String id_token;
 	unsigned int expires;
 };
 
+struct GraphPresence {
+	String id;
+	String availability;
+	String activity;
 
-class ArduinoMSGraph
-{
+	GraphError error;
+};
+
+
+class ArduinoMSGraph {
 public:
 	// Constructor
 	ArduinoMSGraph(Client &client, const char *tenant, const char *clientId);
+
+	// General
+	void loop();
 
 	// // Auth Methods
 	// void setRefreshToken(const char *refreshToken);
@@ -55,6 +68,9 @@ public:
 	// Authentication Methods
 	bool startDeviceLoginFlow(JsonDocument &doc, const char *scope = "offline_access%20openid%20Presence.Read");
 	bool pollForToken(JsonDocument &doc, const char *device_code);
+
+	// Graph Presence Methods
+	GraphPresence getUserPresence();
 
 	// // User methods
 	// CurrentlyPlaying getCurrentlyPlaying(const char *market = "");
@@ -82,15 +98,11 @@ public:
 	Client *client;
 
 private:
-	// char _bearerToken[200];
-	// const char *_refreshToken;
 	const char *_clientId;
 	const char *_tenant;
-	// const char *_bearerToken;
 
-	GraphContext _context;
+	GraphAuthContext _context;
 
-	unsigned int _tokenExpires = 0;
 	// const char *_clientSecret;
 	// unsigned int timeTokenRefreshed;
 	// unsigned int tokenTimeToLiveMs;

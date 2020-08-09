@@ -1,11 +1,20 @@
 #include "ArduinoMSGraph.h"
 #include "ArduinoMSGraphCerts.h"
 
-ArduinoMSGraph::ArduinoMSGraph(Client &client, const char *tenant, const char *clientId)
-{
+ArduinoMSGraph::ArduinoMSGraph(Client &client, const char *tenant, const char *clientId) {
     this->client = &client;
     this->_tenant = tenant;
     this->_clientId = clientId;
+}
+
+
+/**
+ * Must be called on a regular basis. Handles refreshing of expiered tokens.
+ */
+void ArduinoMSGraph::loop() {
+	if (_context.expires <= millis()) {
+		DBG_PRINT(F("loop() - Token needs refresh"));
+	}
 }
 
 
@@ -41,7 +50,12 @@ bool ArduinoMSGraph::requestJsonApi(JsonDocument& responseDoc, String url, Strin
 
 		// Send auth header?
 		if (sendAuth) {
-			https.addHeader("Authorization", _context.access_token);
+			char authHeader[512];
+			sprintf(authHeader, "Bearer %s", _context.access_token.c_str());
+			DBG_PRINTLN("###################");
+			DBG_PRINTLN(authHeader);
+			DBG_PRINTLN("###################");
+			https.addHeader("Authorization", authHeader);
 			Serial.printf("[HTTPS] Auth token valid for %d s.\n", getTokenLifetime());
 		}
 
@@ -61,8 +75,8 @@ bool ArduinoMSGraph::requestJsonApi(JsonDocument& responseDoc, String url, Strin
 			// File found at server (HTTP 200, 301), or HTTP 400 with response payload
 			if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY || httpCode == HTTP_CODE_BAD_REQUEST) {
 
-                // String payload = https.getString();
-                // DBG_PRINTLN(payload);
+				// String payload = https.getString();
+				// DBG_PRINTLN(payload);
 
 				// Parse JSON data
 				DeserializationError error = deserializeJson(responseDoc, https.getStream());
@@ -149,9 +163,9 @@ bool ArduinoMSGraph::pollForToken(JsonDocument &responseDoc, const char *device_
 	} else {
 		if (responseDoc.containsKey("access_token") && responseDoc.containsKey("refresh_token")) {
 			// Store tokens in context
-			_context.access_token = responseDoc["access_token"].as<const char*>();
-			_context.refresh_token = responseDoc["refresh_token"].as<const char*>();
-			_context.id_token = responseDoc["id_token"].as<const char*>();
+			_context.access_token = responseDoc["access_token"].as<String>();
+			_context.refresh_token = responseDoc["refresh_token"].as<String>();
+			_context.id_token = responseDoc["id_token"].as<String>();
 			unsigned int _expires_in = responseDoc["expires_in"].as<unsigned int>();
 			_context.expires = millis() + (_expires_in * 1000); // Calculate timestamp when token expires
 
@@ -215,15 +229,15 @@ bool ArduinoMSGraph::readContextFromSPIFFS() {
 			} else {
 				int numSettings = 0;
 				if (!contextDoc["access_token"].isNull()) {
-					_context.access_token = contextDoc["access_token"].as<const char*>();
+					_context.access_token = contextDoc["access_token"].as<String>();
 					numSettings++;
 				}
 				if (!contextDoc["refresh_token"].isNull()) {
-					_context.refresh_token = contextDoc["refresh_token"].as<const char*>();
+					_context.refresh_token = contextDoc["refresh_token"].as<String>();
 					numSettings++;
 				}
 				if (!contextDoc["id_token"].isNull()){
-					_context.id_token = contextDoc["id_token"].as<const char*>();
+					_context.id_token = contextDoc["id_token"].as<String>();
 				}
 				if (!contextDoc["expires"].isNull()){
 					_context.expires = contextDoc["expires"].as<unsigned int>();
@@ -252,6 +266,44 @@ bool ArduinoMSGraph::readContextFromSPIFFS() {
 bool ArduinoMSGraph::removeContextFromSPIFFS() {
 	DBG_PRINTLN(F("removeContextFromSPIFFS()"));
 	return SPIFFS.remove(CONTEXT_FILE);
+}
+
+
+/**
+ * Get presence information of the current user
+ * 
+ * @returns Presence information
+ */
+GraphPresence ArduinoMSGraph::getUserPresence() {
+	// See: https://github.com/microsoftgraph/microsoft-graph-docs/blob/ananya/api-reference/beta/resources/presence.md
+	GraphPresence result;
+
+	const size_t capacity = JSON_OBJECT_SIZE(4) + 220;
+	DynamicJsonDocument responseDoc(capacity);
+
+	bool res = requestJsonApi(responseDoc, "https://graph.microsoft.com/beta/me/presence", "", "GET", true);
+
+	if (!res) {
+		result.error.hasError = false;
+	} else if (responseDoc.containsKey("error")) {
+		const char* _error_code = responseDoc["error"]["code"];
+		if (strcmp(_error_code, "InvalidAuthenticationToken")) {
+			DBG_PRINTLN(F("pollPresence() - Refresh needed"));
+
+			_context.expires = 0; // Force token refresh
+		} else {
+			Serial.printf("pollPresence() - Error: %s\n", _error_code);
+		}
+		result.error.hasError = true;
+	} else {
+		// Return presence info
+		
+		result.id = responseDoc["id"].as<String>();
+		result.availability = responseDoc["availability"].as<String>();
+		result.activity = responseDoc["activity"].as<String>();
+		result.error.hasError = false;
+	}
+	return result;
 }
 
 
