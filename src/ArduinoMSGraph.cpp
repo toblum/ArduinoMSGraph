@@ -19,7 +19,7 @@ ArduinoMSGraph::ArduinoMSGraph(Client &client, const char *tenant, const char *c
  * @param sendAuth If true, send the Bearer token together with the request.
  * @returns True if request successful, false on error.
  */
-boolean ArduinoMSGraph::requestJsonApi(JsonDocument& responseDoc, String url, String payload, String method, boolean sendAuth) {
+bool ArduinoMSGraph::requestJsonApi(JsonDocument& responseDoc, String url, String payload, String method, bool sendAuth) {
     const char* cert;
     if (url.indexOf("graph.microsoft.com") > -1) {
 		cert = rootCACertificateGraph;
@@ -41,7 +41,7 @@ boolean ArduinoMSGraph::requestJsonApi(JsonDocument& responseDoc, String url, St
 
 		// Send auth header?
 		if (sendAuth) {
-			https.addHeader("Authorization", _bearerToken);
+			https.addHeader("Authorization", _context.access_token);
 			Serial.printf("[HTTPS] Auth token valid for %d s.\n", getTokenLifetime());
 		}
 
@@ -148,6 +148,13 @@ bool ArduinoMSGraph::pollForToken(JsonDocument &responseDoc, const char *device_
 		return false;
 	} else {
 		if (responseDoc.containsKey("access_token") && responseDoc.containsKey("refresh_token")) {
+			// Store tokens in context
+			_context.access_token = responseDoc["access_token"].as<const char*>();
+			_context.refresh_token = responseDoc["refresh_token"].as<const char*>();
+			_context.id_token = responseDoc["id_token"].as<const char*>();
+			unsigned int _expires_in = responseDoc["expires_in"].as<unsigned int>();
+			_context.expires = millis() + (_expires_in * 1000); // Calculate timestamp when token expires
+
 			return true;
 		} else {
 			DBG_PRINTLN("pollForToken() - Not all expected keys (access_token, refresh_token) found.");
@@ -158,18 +165,18 @@ bool ArduinoMSGraph::pollForToken(JsonDocument &responseDoc, const char *device_
 
 
 /**
- * Save the required context variables from responseDoc in a JSON file in SPIFFS.
+ * Save current Graph context in a JSON file in SPIFFS.
  * 
- * @param responseDoc JsonDocument passed as reference to hold the result.
  * @returns True if saving was successful.
  */
-bool ArduinoMSGraph::saveContextInSPIFFS(JsonDocument &responseDoc) {
+bool ArduinoMSGraph::saveContextToSPIFFS() {
 	const size_t capacity = JSON_OBJECT_SIZE(3) + 5000;
 	DynamicJsonDocument contextDoc(capacity);
 
-	contextDoc["access_token"] = responseDoc["access_token"].as<const char*>();
-	contextDoc["refresh_token"] = responseDoc["refresh_token"].as<const char*>();
-	contextDoc["id_token"] = responseDoc["id_token"].as<const char*>();
+	contextDoc["access_token"] = _context.access_token;
+	contextDoc["refresh_token"] = _context.refresh_token;
+	contextDoc["id_token"] = _context.id_token;
+	contextDoc["expires"] = _context.expires;
 
 	File contextFile = SPIFFS.open(CONTEXT_FILE, FILE_WRITE);
 	size_t bytesWritten = serializeJsonPretty(contextDoc, contextFile);
@@ -182,8 +189,72 @@ bool ArduinoMSGraph::saveContextInSPIFFS(JsonDocument &responseDoc) {
 }
 
 
+/**
+ * Try to restote Graph context from SPIFFS
+ * 
+ * @returns True if restore was successful.
+ */
+bool ArduinoMSGraph::readContextFromSPIFFS() {
+	File file = SPIFFS.open(CONTEXT_FILE);
+	boolean success = false;
+
+	if (!file) {
+		DBG_PRINTLN(F("loadContext() - No file found"));
+	} else {
+		size_t size = file.size();
+		if (size == 0) {
+			DBG_PRINTLN(F("loadContext() - File empty"));
+		} else {
+			const int capacity = JSON_OBJECT_SIZE(3) + 5000;
+			DynamicJsonDocument contextDoc(capacity);
+			DeserializationError err = deserializeJson(contextDoc, file);
+
+			if (err) {
+				DBG_PRINT(F("loadContext() - deserializeJson() failed with code: "));
+				DBG_PRINTLN(err.c_str());
+			} else {
+				int numSettings = 0;
+				if (!contextDoc["access_token"].isNull()) {
+					_context.access_token = contextDoc["access_token"].as<const char*>();
+					numSettings++;
+				}
+				if (!contextDoc["refresh_token"].isNull()) {
+					_context.refresh_token = contextDoc["refresh_token"].as<const char*>();
+					numSettings++;
+				}
+				if (!contextDoc["id_token"].isNull()){
+					_context.id_token = contextDoc["id_token"].as<const char*>();
+				}
+				if (!contextDoc["expires"].isNull()){
+					_context.expires = contextDoc["expires"].as<unsigned int>();
+				}
+				if (numSettings >= 2) {
+					DBG_PRINTLN(F("loadContext() - Success"));
+					success = true;
+				} else {
+					Serial.printf("loadContext() - ERROR Number of valid settings in file: %d, should greater or equals 2.\n", numSettings);
+				}
+				// DBG_PRINTLN(contextDoc.as<String>());
+			}
+		}
+		file.close();
+	}
+
+	return success;
+}
+
+
+/**
+ * Remove the stored context from SPIFFS.
+ * 
+ * @returns True when removing was successful
+ */
+bool ArduinoMSGraph::removeContextFromSPIFFS() {
+	DBG_PRINTLN(F("removeContextFromSPIFFS()"));
+	return SPIFFS.remove(CONTEXT_FILE);
+}
 
 
 int ArduinoMSGraph::getTokenLifetime() {
-	return (_tokenExpires - millis()) / 1000;
+	return (_context.expires - millis()) / 1000;
 }
