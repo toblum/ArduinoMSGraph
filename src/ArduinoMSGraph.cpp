@@ -13,7 +13,7 @@ ArduinoMSGraph::ArduinoMSGraph(Client &client, const char *tenant, const char *c
  */
 void ArduinoMSGraph::loop() {
 	if (_context.expires <= millis()) {
-		DBG_PRINT(F("loop() - Token needs refresh"));
+		DBG_PRINTLN(F("loop() - Token needs refresh"));
 	}
 }
 
@@ -28,9 +28,9 @@ void ArduinoMSGraph::loop() {
  * @param sendAuth If true, send the Bearer token together with the request.
  * @returns True if request successful, false on error.
  */
-bool ArduinoMSGraph::requestJsonApi(JsonDocument& responseDoc, String url, String payload, String method, bool sendAuth) {
-    const char* cert;
-    if (url.indexOf("graph.microsoft.com") > -1) {
+bool ArduinoMSGraph::requestJsonApi(JsonDocument& responseDoc, const char *url, const char *payload, const char *method, bool sendAuth) {
+	const char* cert;
+	if (strstr(url, "graph.microsoft.com") != NULL) {
 		cert = rootCACertificateGraph;
 	} else {
 		cert = rootCACertificateLogin;
@@ -50,37 +50,27 @@ bool ArduinoMSGraph::requestJsonApi(JsonDocument& responseDoc, String url, Strin
 
 		// Send auth header?
 		if (sendAuth) {
-			char authHeader[512];
+			char authHeader[_context.access_token.length() + 8];
 			sprintf(authHeader, "Bearer %s", _context.access_token.c_str());
-			DBG_PRINTLN("###################");
-			DBG_PRINTLN(authHeader);
-			DBG_PRINTLN("###################");
 			https.addHeader("Authorization", authHeader);
 			Serial.printf("[HTTPS] Auth token valid for %d s.\n", getTokenLifetime());
 		}
 
 		// Start connection and send HTTP header
-		int httpCode = 0;
-		if (method == "POST") {
-			httpCode = https.POST(payload);
-		} else {
-			httpCode = https.GET();
-		}
+		int httpCode = https.sendRequest(method, payload);
 
 		// httpCode will be negative on error
 		if (httpCode > 0) {
 			// HTTP header has been send and Server response header has been handled
-			Serial.printf("[HTTPS] Method: %s, Response code: %d\n", method.c_str(), httpCode);
+			Serial.printf("[HTTPS] Method: %s, Response code: %d\n", method, httpCode);
 
 			// File found at server (HTTP 200, 301), or HTTP 400 with response payload
 			if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY || httpCode == HTTP_CODE_BAD_REQUEST) {
-
-				// String payload = https.getString();
-				// DBG_PRINTLN(payload);
+				// String res = https.getString();
+				// DBG_PRINTLN(res);
 
 				// Parse JSON data
 				DeserializationError error = deserializeJson(responseDoc, https.getStream());
-				
 				if (error) {
 					DBG_PRINT(F("deserializeJson() failed: "));
 					DBG_PRINTLN(error.c_str());
@@ -239,9 +229,7 @@ bool ArduinoMSGraph::readContextFromSPIFFS() {
 				if (!contextDoc["id_token"].isNull()){
 					_context.id_token = contextDoc["id_token"].as<String>();
 				}
-				if (!contextDoc["expires"].isNull()){
-					_context.expires = contextDoc["expires"].as<unsigned int>();
-				}
+				_context.expires = 0;
 				if (numSettings >= 2) {
 					DBG_PRINTLN(F("loadContext() - Success"));
 					success = true;
