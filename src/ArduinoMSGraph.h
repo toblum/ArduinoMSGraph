@@ -68,6 +68,7 @@ public:
 	// Authentication Methods
 	bool startDeviceLoginFlow(JsonDocument &doc, const char *scope = "offline_access%20openid%20Presence.Read");
 	bool pollForToken(JsonDocument &doc, const char *device_code);
+	bool refreshToken();
 
 	// Graph Presence Methods
 	GraphPresence getUserPresence();

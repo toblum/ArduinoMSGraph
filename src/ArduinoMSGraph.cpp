@@ -14,6 +14,7 @@ ArduinoMSGraph::ArduinoMSGraph(Client &client, const char *tenant, const char *c
 void ArduinoMSGraph::loop() {
 	if (_context.expires <= millis()) {
 		DBG_PRINTLN(F("loop() - Token needs refresh"));
+		refreshToken();
 	}
 }
 
@@ -169,6 +170,52 @@ bool ArduinoMSGraph::pollForToken(JsonDocument &responseDoc, const char *device_
 
 
 /**
+ * Refresh the access_token using the refresh_token.
+ * 
+ * @returns True if refresh successful, false on error.
+ */
+bool ArduinoMSGraph::refreshToken() {
+	DBG_PRINTLN(F("refreshToken()"));
+	// See: https://docs.microsoft.com/de-de/azure/active-directory/develop/v1-protocols-oauth-code#refreshing-the-access-tokens
+
+	bool success = false;
+	char url[255];
+    sprintf(url,"https://login.microsoftonline.com/%s/oauth2/v2.0/token", this->_tenant);
+	char payload[52 + sizeof(this->_clientId) + _context.refresh_token.length()];
+    sprintf(payload, "client_id=%s&grant_type=refresh_token&refresh_token=%s", this->_clientId, _context.refresh_token.c_str());
+	
+	const size_t capacity = JSON_OBJECT_SIZE(7) + 10000;
+	DynamicJsonDocument responseDoc(capacity);
+
+	bool res = requestJsonApi(responseDoc, url, payload);
+
+	// Replace tokens and expiration
+	if (res && responseDoc.containsKey("access_token") && responseDoc.containsKey("refresh_token")) {
+		if (!responseDoc["access_token"].isNull()) {
+			_context.access_token = responseDoc["access_token"].as<String>();
+			success = true;
+		}
+		if (!responseDoc["refresh_token"].isNull()) {
+			_context.refresh_token = responseDoc["refresh_token"].as<String>();
+			success = true;
+		}
+		if (!responseDoc["id_token"].isNull()) {
+			_context.id_token = responseDoc["id_token"].as<String>();
+		}
+		if (!responseDoc["expires_in"].isNull()) {
+			int _expires_in = responseDoc["expires_in"].as<unsigned int>();
+			_context.expires = millis() + (_expires_in * 1000); // Calculate timestamp when token expires
+		}
+
+		DBG_PRINTLN(F("refreshToken() - Success"));
+	} else {
+		DBG_PRINTLN(F("refreshToken() - Error:"));
+	}
+	return success;
+}
+
+
+/**
  * Save current Graph context in a JSON file in SPIFFS.
  * 
  * @returns True if saving was successful.
@@ -285,7 +332,6 @@ GraphPresence ArduinoMSGraph::getUserPresence() {
 		result.error.hasError = true;
 	} else {
 		// Return presence info
-		
 		result.id = responseDoc["id"].as<String>();
 		result.availability = responseDoc["availability"].as<String>();
 		result.activity = responseDoc["activity"].as<String>();
