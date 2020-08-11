@@ -51,8 +51,8 @@ bool ArduinoMSGraph::requestJsonApi(JsonDocument& responseDoc, const char *url, 
 
 		// Send auth header?
 		if (sendAuth) {
-			char authHeader[_context.access_token.length() + 8];
-			sprintf(authHeader, "Bearer %s", _context.access_token.c_str());
+			char authHeader[strlen(_context.access_token) + 8];
+			sprintf(authHeader, "Bearer %s", _context.access_token);
 			https.addHeader("Authorization", authHeader);
 			Serial.printf("[HTTPS] Auth token valid for %d s.\n", getTokenLifetime());
 		}
@@ -108,12 +108,12 @@ bool ArduinoMSGraph::requestJsonApi(JsonDocument& responseDoc, const char *url, 
  * @returns True if request successful, false on error
  */
 bool ArduinoMSGraph::startDeviceLoginFlow(JsonDocument &responseDoc, const char *scope) {
-	DBG_PRINT(F("startDeviceLoginFlow() - "));
+	DBG_PRINT(F("startDeviceLoginFlow() - Scope: "));
 	DBG_PRINTLN(scope);
 
-	char url[255];
+	char url[58 + strlen(this->_tenant)];
     sprintf(url,"https://login.microsoftonline.com/%s/oauth2/v2.0/devicecode", this->_tenant);
-	char payload[255];
+	char payload[18 + strlen(this->_clientId) + strlen(scope)];
     sprintf(payload,"client_id=%s&scope=%s", this->_clientId, scope);
 
 	bool res = requestJsonApi(responseDoc, url, payload);
@@ -132,9 +132,9 @@ bool ArduinoMSGraph::startDeviceLoginFlow(JsonDocument &responseDoc, const char 
 bool ArduinoMSGraph::pollForToken(JsonDocument &responseDoc, const char *device_code) {
 	DBG_PRINTLN(F("pollForToken()"));
 
-	char url[255];
+	char url[53 + strlen(this->_tenant)];
     sprintf(url,"https://login.microsoftonline.com/%s/oauth2/v2.0/token", this->_tenant);
-	char payload[512];
+	char payload[80 + strlen(this->_clientId) + strlen(device_code)];
     sprintf(payload,"client_id=%s&grant_type=urn:ietf:params:oauth:grant-type:device_code&device_code=%s", this->_clientId, device_code);
 
 	bool res = requestJsonApi(responseDoc, url, payload);
@@ -154,10 +154,10 @@ bool ArduinoMSGraph::pollForToken(JsonDocument &responseDoc, const char *device_
 	} else {
 		if (responseDoc.containsKey("access_token") && responseDoc.containsKey("refresh_token")) {
 			// Store tokens in context
-			_context.access_token = responseDoc["access_token"].as<String>();
-			_context.refresh_token = responseDoc["refresh_token"].as<String>();
-			_context.id_token = responseDoc["id_token"].as<String>();
-			unsigned int _expires_in = responseDoc["expires_in"].as<unsigned int>();
+			strncpy(_context.access_token, responseDoc["access_token"], sizeof(_context.access_token));
+			strncpy(_context.refresh_token, responseDoc["refresh_token"], sizeof(_context.refresh_token));
+			strncpy(_context.id_token, responseDoc["id_token"], sizeof(_context.id_token));
+			unsigned int _expires_in = responseDoc["expires_in"].as<unsigned long>();
 			_context.expires = millis() + (_expires_in * 1000); // Calculate timestamp when token expires
 
 			return true;
@@ -179,10 +179,10 @@ bool ArduinoMSGraph::refreshToken() {
 	// See: https://docs.microsoft.com/de-de/azure/active-directory/develop/v1-protocols-oauth-code#refreshing-the-access-tokens
 
 	bool success = false;
-	char url[255];
+	char url[53 + strlen(this->_tenant];
     sprintf(url,"https://login.microsoftonline.com/%s/oauth2/v2.0/token", this->_tenant);
-	char payload[52 + sizeof(this->_clientId) + _context.refresh_token.length()];
-    sprintf(payload, "client_id=%s&grant_type=refresh_token&refresh_token=%s", this->_clientId, _context.refresh_token.c_str());
+	char payload[52 + sizeof(this->_clientId) + strlen(_context.refresh_token)];
+    sprintf(payload, "client_id=%s&grant_type=refresh_token&refresh_token=%s", this->_clientId, _context.refresh_token);
 	
 	const size_t capacity = JSON_OBJECT_SIZE(7) + 10000;
 	DynamicJsonDocument responseDoc(capacity);
@@ -192,24 +192,25 @@ bool ArduinoMSGraph::refreshToken() {
 	// Replace tokens and expiration
 	if (res && responseDoc.containsKey("access_token") && responseDoc.containsKey("refresh_token")) {
 		if (!responseDoc["access_token"].isNull()) {
-			_context.access_token = responseDoc["access_token"].as<String>();
+			strncpy(_context.access_token, responseDoc["access_token"], sizeof(_context.access_token));
 			success = true;
 		}
 		if (!responseDoc["refresh_token"].isNull()) {
-			_context.refresh_token = responseDoc["refresh_token"].as<String>();
+			strncpy(_context.refresh_token, responseDoc["refresh_token"], sizeof(_context.refresh_token));
 			success = true;
 		}
 		if (!responseDoc["id_token"].isNull()) {
-			_context.id_token = responseDoc["id_token"].as<String>();
+			strncpy(_context.id_token, responseDoc["id_token"], sizeof(_context.id_token));
 		}
 		if (!responseDoc["expires_in"].isNull()) {
-			int _expires_in = responseDoc["expires_in"].as<unsigned int>();
+			int _expires_in = responseDoc["expires_in"].as<unsigned long>();
 			_context.expires = millis() + (_expires_in * 1000); // Calculate timestamp when token expires
 		}
 
 		DBG_PRINTLN(F("refreshToken() - Success"));
 	} else {
-		DBG_PRINTLN(F("refreshToken() - Error:"));
+		DBG_PRINT(F("refreshToken() - Error: "));
+		DBG_PRINTLN(responseDoc["error_description"].as<const char*>());
 	}
 	return success;
 }
@@ -227,7 +228,6 @@ bool ArduinoMSGraph::saveContextToSPIFFS() {
 	contextDoc["access_token"] = _context.access_token;
 	contextDoc["refresh_token"] = _context.refresh_token;
 	contextDoc["id_token"] = _context.id_token;
-	contextDoc["expires"] = _context.expires;
 
 	File contextFile = SPIFFS.open(CONTEXT_FILE, FILE_WRITE);
 	size_t bytesWritten = serializeJsonPretty(contextDoc, contextFile);
@@ -266,15 +266,15 @@ bool ArduinoMSGraph::readContextFromSPIFFS() {
 			} else {
 				int numSettings = 0;
 				if (!contextDoc["access_token"].isNull()) {
-					_context.access_token = contextDoc["access_token"].as<String>();
+					strncpy(_context.access_token, contextDoc["access_token"], sizeof(_context.access_token));
 					numSettings++;
 				}
 				if (!contextDoc["refresh_token"].isNull()) {
-					_context.refresh_token = contextDoc["refresh_token"].as<String>();
+					strncpy(_context.refresh_token, contextDoc["refresh_token"], sizeof(_context.refresh_token));
 					numSettings++;
 				}
 				if (!contextDoc["id_token"].isNull()){
-					_context.id_token = contextDoc["id_token"].as<String>();
+					strncpy(_context.id_token, contextDoc["id_token"], sizeof(_context.id_token));
 				}
 				_context.expires = 0;
 				if (numSettings >= 2) {
@@ -313,7 +313,7 @@ GraphPresence ArduinoMSGraph::getUserPresence() {
 	// See: https://github.com/microsoftgraph/microsoft-graph-docs/blob/ananya/api-reference/beta/resources/presence.md
 	GraphPresence result;
 
-	const size_t capacity = JSON_OBJECT_SIZE(4) + 220;
+	const size_t capacity = JSON_OBJECT_SIZE(4) + 512;
 	DynamicJsonDocument responseDoc(capacity);
 
 	bool res = requestJsonApi(responseDoc, "https://graph.microsoft.com/beta/me/presence", "", "GET", true);
@@ -329,12 +329,14 @@ GraphPresence ArduinoMSGraph::getUserPresence() {
 		} else {
 			Serial.printf("pollPresence() - Error: %s\n", _error_code);
 		}
+
+		strncpy(result.error.message, _error_code, sizeof(result.error.message));
 		result.error.hasError = true;
 	} else {
 		// Return presence info
-		result.id = responseDoc["id"].as<String>();
-		result.availability = responseDoc["availability"].as<String>();
-		result.activity = responseDoc["activity"].as<String>();
+		strncpy(result.id, responseDoc["id"], sizeof(result.id));
+		strncpy(result.availability, responseDoc["availability"], sizeof(result.availability));
+		strncpy(result.activity, responseDoc["activity"], sizeof(result.activity));
 		result.error.hasError = false;
 	}
 	return result;

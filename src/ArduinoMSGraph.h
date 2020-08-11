@@ -17,20 +17,20 @@
 
 struct GraphError {
 	bool hasError;
-	String message;
+	char message[256];
 };
 
 struct GraphAuthContext {
-	String access_token;
-	String refresh_token;
-	String id_token;
-	unsigned int expires;
+	char access_token[4096];
+	char refresh_token[1024];	// https://docs.microsoft.com/en-us/linkedin/shared/authentication/programmatic-refresh-tokens#sample-response
+	char id_token[4096];
+	unsigned long expires;
 };
 
 struct GraphPresence {
-	String id;
-	String availability;
-	String activity;
+	char id[37];
+	char availability [33];
+	char activity[33];
 
 	GraphError error;
 };
