@@ -17,12 +17,13 @@
 
 struct GraphError {
 	bool hasError;
+	bool tokenNeedsRefresh;
 	char message[256];
 };
 
 struct GraphAuthContext {
 	char access_token[4096];
-	char refresh_token[1024];	// https://docs.microsoft.com/en-us/linkedin/shared/authentication/programmatic-refresh-tokens#sample-response
+	char refresh_token[2048];	// https://docs.microsoft.com/en-us/linkedin/shared/authentication/programmatic-refresh-tokens#sample-response
 	char id_token[4096];
 	unsigned long expires;
 };
@@ -42,7 +43,7 @@ public:
 	ArduinoMSGraph(Client &client, const char *tenant, const char *clientId);
 
 	// General
-	void loop();
+	// void loop();
 
 	// // Auth Methods
 	// void setRefreshToken(const char *refreshToken);

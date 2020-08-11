@@ -14,6 +14,14 @@ const size_t capacity = JSON_OBJECT_SIZE(6) + 540;
 DynamicJsonDocument deviceCodeDoc(capacity);
 DynamicJsonDocument pollingDoc(10000);
 
+enum STATES {
+	no_context,
+	context_available,
+	wait_login,
+	token_needs_refresh
+};
+STATES currentState = no_context;
+
 void setup()
 {
 	Serial.begin(115200);
@@ -22,6 +30,11 @@ void setup()
 	if(!SPIFFS.begin(true)){
 		Serial.println("An Error has occurred while mounting SPIFFS");
 		return;
+	}
+
+	bool got_context = graphClient.readContextFromSPIFFS();
+	if (got_context) {
+		currentState = token_needs_refresh;
 	}
 
 	WiFi.mode(WIFI_STA);
@@ -40,31 +53,33 @@ void setup()
 	Serial.print("IP address: ");
 	IPAddress ipAddress = WiFi.localIP();
 	Serial.println(ipAddress);
-
-	// Start device login flow
-	graphClient.startDeviceLoginFlow(deviceCodeDoc);
-
-	// Serial.println(doc.as<String>());
-
-	// Consume result
-	deviceCode = deviceCodeDoc["device_code"].as<const char*>();
-	const char *user_code = deviceCodeDoc["user_code"].as<const char*>();
-	const char *verification_uri = deviceCodeDoc["verification_uri"].as<const char*>();
-	const char *message = deviceCodeDoc["message"].as<const char*>();
-
-	Serial.print("deviceCode: ");
-	Serial.println(deviceCode);
-	Serial.print("user_code: ");
-	Serial.println(user_code);
-	Serial.print("verification_uri: ");
-	Serial.println(verification_uri);
-	Serial.print("message: ");
-	Serial.println(message);
 }
 
 void loop()
 {
-	if (!tokenReceived) {
+	if (currentState == no_context) {
+		// Start device login flow
+		graphClient.startDeviceLoginFlow(deviceCodeDoc);
+
+		// Consume result
+		deviceCode = deviceCodeDoc["device_code"].as<const char*>();
+		const char *user_code = deviceCodeDoc["user_code"].as<const char*>();
+		const char *verification_uri = deviceCodeDoc["verification_uri"].as<const char*>();
+		const char *message = deviceCodeDoc["message"].as<const char*>();
+
+		Serial.print("deviceCode: ");
+		Serial.println(deviceCode);
+		Serial.print("user_code: ");
+		Serial.println(user_code);
+		Serial.print("verification_uri: ");
+		Serial.println(verification_uri);
+		Serial.print("message: ");
+		Serial.println(message);
+
+		currentState = wait_login;
+	}
+
+	if (currentState == wait_login) {
 		DBG_PRINTLN();
 		DBG_PRINTLN("##########################################");
 		bool res = graphClient.pollForToken(pollingDoc, deviceCode);
@@ -73,11 +88,39 @@ void loop()
 			DBG_PRINTLN("GOT ACCESS TOKEN!");
 			DBG_PRINTLN(pollingDoc["access_token"].as<String>());
 
-			graphClient.saveContextInSPIFFS(pollingDoc);
-			tokenReceived = true;
+			graphClient.saveContextToSPIFFS();
+			currentState = context_available;
 		} else {
 			DBG_PRINTLN("No token received, continue polling.");
 			delay(10000);
+		}
+	}
+
+	if (currentState == context_available) {
+		DBG_PRINTLN("##########################################");
+		DBG_PRINTLN("context_available");
+		GraphPresence gp = graphClient.getUserPresence();
+		if (!gp.error.hasError) {
+			DBG_PRINT("activity: ");
+			DBG_PRINTLN(gp.activity);
+			delay(30000);
+		} else {
+			DBG_PRINT("gp error: ");
+			DBG_PRINTLN(gp.error.message);
+			if (gp.error.tokenNeedsRefresh) {
+				currentState = token_needs_refresh;
+			}
+			delay(10000);
+		}
+	}
+
+	if (currentState == token_needs_refresh) {
+		bool res = graphClient.refreshToken();
+		if (res) {
+			graphClient.saveContextToSPIFFS();
+			currentState = context_available;
+		} else {
+			delay(30000);
 		}
 	}
 }

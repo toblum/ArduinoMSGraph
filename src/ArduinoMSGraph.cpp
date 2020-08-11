@@ -9,17 +9,6 @@ ArduinoMSGraph::ArduinoMSGraph(Client &client, const char *tenant, const char *c
 
 
 /**
- * Must be called on a regular basis. Handles refreshing of expiered tokens.
- */
-void ArduinoMSGraph::loop() {
-	if (_context.expires <= millis()) {
-		DBG_PRINTLN(F("loop() - Token needs refresh"));
-		refreshToken();
-	}
-}
-
-
-/**
  * Perform a HTTP request.
  * 
  * @param responseDoc JsonDocument passed as reference to hold the result.
@@ -65,8 +54,8 @@ bool ArduinoMSGraph::requestJsonApi(JsonDocument& responseDoc, const char *url, 
 			// HTTP header has been send and Server response header has been handled
 			Serial.printf("[HTTPS] Method: %s, Response code: %d\n", method, httpCode);
 
-			// File found at server (HTTP 200, 301), or HTTP 400 with response payload
-			if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY || httpCode == HTTP_CODE_BAD_REQUEST) {
+			// File found at server (HTTP 200, 301), or HTTP 400, 401 with response payload
+			if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY || httpCode == HTTP_CODE_BAD_REQUEST || httpCode == HTTP_CODE_UNAUTHORIZED) {
 				// String res = https.getString();
 				// DBG_PRINTLN(res);
 
@@ -179,11 +168,12 @@ bool ArduinoMSGraph::refreshToken() {
 	// See: https://docs.microsoft.com/de-de/azure/active-directory/develop/v1-protocols-oauth-code#refreshing-the-access-tokens
 
 	bool success = false;
-	char url[53 + strlen(this->_tenant];
-    sprintf(url,"https://login.microsoftonline.com/%s/oauth2/v2.0/token", this->_tenant);
-	char payload[52 + sizeof(this->_clientId) + strlen(_context.refresh_token)];
+	char url[53 + strlen(this->_tenant)];
+    sprintf(url, "https://login.microsoftonline.com/%s/oauth2/v2.0/token", this->_tenant);
+
+	char payload[51 + strlen(this->_clientId) + strlen(_context.refresh_token)];
     sprintf(payload, "client_id=%s&grant_type=refresh_token&refresh_token=%s", this->_clientId, _context.refresh_token);
-	
+
 	const size_t capacity = JSON_OBJECT_SIZE(7) + 10000;
 	DynamicJsonDocument responseDoc(capacity);
 
@@ -312,6 +302,7 @@ bool ArduinoMSGraph::removeContextFromSPIFFS() {
 GraphPresence ArduinoMSGraph::getUserPresence() {
 	// See: https://github.com/microsoftgraph/microsoft-graph-docs/blob/ananya/api-reference/beta/resources/presence.md
 	GraphPresence result;
+	result.error.tokenNeedsRefresh = false;
 
 	const size_t capacity = JSON_OBJECT_SIZE(4) + 512;
 	DynamicJsonDocument responseDoc(capacity);
@@ -322,10 +313,10 @@ GraphPresence ArduinoMSGraph::getUserPresence() {
 		result.error.hasError = false;
 	} else if (responseDoc.containsKey("error")) {
 		const char* _error_code = responseDoc["error"]["code"];
-		if (strcmp(_error_code, "InvalidAuthenticationToken")) {
+		if (strcmp(_error_code, "InvalidAuthenticationToken") == 0) {
 			DBG_PRINTLN(F("pollPresence() - Refresh needed"));
 
-			_context.expires = 0; // Force token refresh
+			result.error.tokenNeedsRefresh = true;
 		} else {
 			Serial.printf("pollPresence() - Error: %s\n", _error_code);
 		}
