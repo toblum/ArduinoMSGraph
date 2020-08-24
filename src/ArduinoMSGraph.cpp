@@ -61,7 +61,9 @@ bool ArduinoMSGraph::requestJsonApi(JsonDocument& responseDoc, const char *url, 
 			char authHeader[strlen(_context.access_token) + 8];
 			sprintf(authHeader, "Bearer %s", _context.access_token);
 			https.addHeader("Authorization", authHeader);
-			Serial.printf("[HTTPS] Auth token valid for %d s.\n", getTokenLifetime());
+			#ifdef MSGRAPH_DEBUG
+				Serial.printf("[HTTPS] Auth token valid for %d s.\n", getTokenLifetime());
+			#endif
 		}
 
 		// Start connection and send HTTP header
@@ -70,7 +72,9 @@ bool ArduinoMSGraph::requestJsonApi(JsonDocument& responseDoc, const char *url, 
 		// httpCode will be negative on error
 		if (httpCode > 0) {
 			// HTTP header has been send and Server response header has been handled
-			Serial.printf("[HTTPS] Method: %s, Response code: %d\n", method, httpCode);
+			#ifdef MSGRAPH_DEBUG
+				Serial.printf("[HTTPS] Method: %s, Response code: %d\n", method, httpCode);
+			#endif
 
 			// File found at server (HTTP 200, 301), or HTTP 400, 401 with response payload
 			if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY || httpCode == HTTP_CODE_BAD_REQUEST || httpCode == HTTP_CODE_UNAUTHORIZED) {
@@ -115,8 +119,10 @@ bool ArduinoMSGraph::requestJsonApi(JsonDocument& responseDoc, const char *url, 
  * @returns True if request successful, false on error
  */
 bool ArduinoMSGraph::startDeviceLoginFlow(JsonDocument &responseDoc, const char *scope) {
-	DBG_PRINT(F("startDeviceLoginFlow() - Scope: "));
-	DBG_PRINTLN(scope);
+	#ifdef MSGRAPH_DEBUG
+		DBG_PRINT(F("startDeviceLoginFlow() - Scope: "));
+		DBG_PRINTLN(scope);
+	#endif
 
 	char url[58 + strlen(this->_tenant)];
     sprintf(url,"https://login.microsoftonline.com/%s/oauth2/v2.0/devicecode", this->_tenant);
@@ -137,7 +143,9 @@ bool ArduinoMSGraph::startDeviceLoginFlow(JsonDocument &responseDoc, const char 
  * @returns True if token is available, if false, continue polling.
  */
 bool ArduinoMSGraph::pollForToken(JsonDocument &responseDoc, const char *device_code) {
-	DBG_PRINTLN(F("pollForToken()"));
+	#ifdef MSGRAPH_DEBUG
+		DBG_PRINTLN(F("pollForToken()"));
+	#endif
 
 	char url[53 + strlen(this->_tenant)];
     sprintf(url,"https://login.microsoftonline.com/%s/oauth2/v2.0/token", this->_tenant);
@@ -182,7 +190,9 @@ bool ArduinoMSGraph::pollForToken(JsonDocument &responseDoc, const char *device_
  * @returns True if refresh successful, false on error.
  */
 bool ArduinoMSGraph::refreshToken() {
-	DBG_PRINTLN(F("refreshToken()"));
+	#ifdef MSGRAPH_DEBUG
+		DBG_PRINTLN(F("refreshToken()"));
+	#endif
 	// See: https://docs.microsoft.com/de-de/azure/active-directory/develop/v1-protocols-oauth-code#refreshing-the-access-tokens
 
 	bool success = false;
@@ -215,7 +225,9 @@ bool ArduinoMSGraph::refreshToken() {
 			_context.expires = millis() + (_expires_in * 1000); // Calculate timestamp when token expires
 		}
 
-		DBG_PRINTLN(F("refreshToken() - Success"));
+		#ifdef MSGRAPH_DEBUG
+			DBG_PRINTLN(F("refreshToken() - Success"));
+		#endif
 	} else {
 		DBG_PRINT(F("refreshToken() - Error: "));
 		DBG_PRINTLN(responseDoc["error_description"].as<const char*>());
@@ -240,9 +252,12 @@ bool ArduinoMSGraph::saveContextToSPIFFS() {
 	File contextFile = SPIFFS.open(CONTEXT_FILE, FILE_WRITE);
 	size_t bytesWritten = serializeJsonPretty(contextDoc, contextFile);
 	contextFile.close();
-	DBG_PRINT(F("saveContextInSPIFFS() - Success - Bytes written: "));
-	DBG_PRINTLN(bytesWritten);
-	// DBG_PRINTLN(contextDoc.as<String>());
+
+	#ifdef MSGRAPH_DEBUG
+		DBG_PRINT(F("saveContextInSPIFFS() - Success - Bytes written: "));
+		DBG_PRINTLN(bytesWritten);
+		// DBG_PRINTLN(contextDoc.as<String>());
+	#endif
 
 	return bytesWritten > 0;
 }
@@ -286,7 +301,9 @@ bool ArduinoMSGraph::readContextFromSPIFFS() {
 				}
 				_context.expires = 0;
 				if (numSettings >= 2) {
-					DBG_PRINTLN(F("loadContext() - Success"));
+					#ifdef MSGRAPH_DEBUG
+						DBG_PRINTLN(F("loadContext() - Success"));
+					#endif
 					success = true;
 				} else {
 					Serial.printf("loadContext() - ERROR Number of valid settings in file: %d, should greater or equals 2.\n", numSettings);
@@ -307,7 +324,10 @@ bool ArduinoMSGraph::readContextFromSPIFFS() {
  * @returns True when removing was successful
  */
 bool ArduinoMSGraph::removeContextFromSPIFFS() {
-	DBG_PRINTLN(F("removeContextFromSPIFFS()"));
+	#ifdef MSGRAPH_DEBUG
+		DBG_PRINTLN(F("removeContextFromSPIFFS()"));
+	#endif
+
 	return SPIFFS.remove(CONTEXT_FILE);
 }
 

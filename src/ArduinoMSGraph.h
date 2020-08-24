@@ -12,6 +12,8 @@
 #ifndef ArduinoMSGraph_h
 #define ArduinoMSGraph_h
 
+// #define MSGRAPH_DEBUG = 1
+
 #define DBG_PRINT(x) Serial.print(x)
 #define DBG_PRINTLN(x) Serial.println(x)
 
