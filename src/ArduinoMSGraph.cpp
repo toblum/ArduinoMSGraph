@@ -1,6 +1,24 @@
+/*
+	Copyright (c) 2020 Tobias Blum. All rights reserved.
+
+	ArduinoMSGraph - A library to wrap the Microsoft Graph API (supports ESP32 & possibly others)
+	https://github.com/toblum/ArduinoMSGraph
+
+	This Source Code Form is subject to the terms of the Mozilla Public
+	License, v. 2.0. If a copy of the MPL was not distributed with this
+	file, You can obtain one at https://mozilla.org/MPL/2.0/.
+*/
+
 #include "ArduinoMSGraph.h"
 #include "ArduinoMSGraphCerts.h"
 
+/**
+ * Create a new ArduinoMSGraph instance
+ *  
+ * @param client WiFiClient to pass to ArduinoMSGraph
+ * @param tenant GUID or name of the tenant (e.g. contoso.onmicrosoft.com)
+ * @param clientID Client ID of the Azure AD app
+ */
 ArduinoMSGraph::ArduinoMSGraph(Client &client, const char *tenant, const char *clientId) {
     this->client = &client;
     this->_tenant = tenant;
@@ -9,7 +27,7 @@ ArduinoMSGraph::ArduinoMSGraph(Client &client, const char *tenant, const char *c
 
 
 /**
- * Perform a HTTP request.
+ * Perform a HTTP request, optionally with authentication information.
  * 
  * @param responseDoc JsonDocument passed as reference to hold the result.
  * @param url URL to request
@@ -237,7 +255,7 @@ bool ArduinoMSGraph::saveContextToSPIFFS() {
  */
 bool ArduinoMSGraph::readContextFromSPIFFS() {
 	File file = SPIFFS.open(CONTEXT_FILE);
-	boolean success = false;
+	bool success = false;
 
 	if (!file) {
 		DBG_PRINTLN(F("loadContext() - No file found"));
@@ -334,6 +352,11 @@ GraphPresence ArduinoMSGraph::getUserPresence() {
 }
 
 
+/**
+ * Return access token lifetime in seconds
+ * 
+ * @returns Token lifetime in seconds
+ */
 int ArduinoMSGraph::getTokenLifetime() {
 	return (_context.expires - millis()) / 1000;
 }

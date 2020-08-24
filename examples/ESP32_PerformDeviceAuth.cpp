@@ -1,3 +1,16 @@
+/*
+	Copyright (c) 2020 Tobias Blum. All rights reserved.
+
+	ArduinoMSGraph - A library to wrap the Microsoft Graph API (supports ESP32 & possibly others)
+	https://github.com/toblum/ArduinoMSGraph
+
+	Example: Authentication flow and polling presence information
+
+	This Source Code Form is subject to the terms of the Mozilla Public
+	License, v. 2.0. If a copy of the MPL was not distributed with this
+	file, You can obtain one at https://mozilla.org/MPL/2.0/.
+*/
+
 #include <Arduino.h>
 #include <ArduinoMSGraph.h>
 #include <WiFiClientSecure.h>
@@ -58,6 +71,8 @@ void setup()
 void loop()
 {
 	if (currentState == no_context) {
+		DBG_PRINTLN("##########################################");
+		DBG_PRINTLN("STATE: no_context");
 		// Start device login flow
 		graphClient.startDeviceLoginFlow(deviceCodeDoc);
 
@@ -80,12 +95,12 @@ void loop()
 	}
 
 	if (currentState == wait_login) {
-		DBG_PRINTLN();
 		DBG_PRINTLN("##########################################");
+		DBG_PRINTLN("STATE: wait_login");
 		bool res = graphClient.pollForToken(pollingDoc, deviceCode);
 
 		if (res) {
-			DBG_PRINTLN("GOT ACCESS TOKEN!");
+			DBG_PRINTLN("GOT ACCESS TOKEN! Yay!");
 			DBG_PRINTLN(pollingDoc["access_token"].as<String>());
 
 			graphClient.saveContextToSPIFFS();
@@ -98,7 +113,7 @@ void loop()
 
 	if (currentState == context_available) {
 		DBG_PRINTLN("##########################################");
-		DBG_PRINTLN("context_available");
+		DBG_PRINTLN("STATE: context_available");
 		GraphPresence gp = graphClient.getUserPresence();
 		if (!gp.error.hasError) {
 			DBG_PRINT("activity: ");
@@ -115,6 +130,8 @@ void loop()
 	}
 
 	if (currentState == token_needs_refresh) {
+		DBG_PRINTLN("##########################################");
+		DBG_PRINTLN("STATE: token_needs_refresh");
 		bool res = graphClient.refreshToken();
 		if (res) {
 			graphClient.saveContextToSPIFFS();

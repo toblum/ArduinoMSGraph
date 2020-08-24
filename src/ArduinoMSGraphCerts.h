@@ -1,3 +1,14 @@
+/*
+	Copyright (c) 2020 Tobias Blum. All rights reserved.
+
+	ArduinoMSGraph - A library to wrap the Microsoft Graph API (supports ESP32 & possibly others)
+    https://github.com/toblum/ArduinoMSGraph
+
+	This Source Code Form is subject to the terms of the Mozilla Public
+	License, v. 2.0. If a copy of the MPL was not distributed with this
+	file, You can obtain one at https://mozilla.org/MPL/2.0/.
+*/
+
 #ifndef ArduinoMSGraphCerts_h
 #define ArduinoMSGraphCerts_h
 

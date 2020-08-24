@@ -1,5 +1,12 @@
 /*
-	Copyright (c) 2020 Tobias Blum. All right reserved.
+	Copyright (c) 2020 Tobias Blum. All rights reserved.
+
+	ArduinoMSGraph - A library to wrap the Microsoft Graph API (supports ESP32 & possibly others)
+	https://github.com/toblum/ArduinoMSGraph
+
+	This Source Code Form is subject to the terms of the Mozilla Public
+	License, v. 2.0. If a copy of the MPL was not distributed with this
+	file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
 #ifndef ArduinoMSGraph_h
@@ -39,24 +46,13 @@ struct GraphPresence {
 
 class ArduinoMSGraph {
 public:
+	Client *client;
+
 	// Constructor
 	ArduinoMSGraph(Client &client, const char *tenant, const char *clientId);
 
-	// General
-	// void loop();
-
-	// // Auth Methods
-	// void setRefreshToken(const char *refreshToken);
-	// bool refreshAccessToken();
-	// bool checkAndRefreshAccessToken();
-	// const char *requestAccessTokens(const char *code, const char *redirectUrl);
-
-	// // Generic Request Methods
+	// Generic Request Methods
 	bool requestJsonApi(JsonDocument &doc, const char *url, const char *payload = "", const char *method = "POST", bool sendAuth = false);
-	// int makeGetRequest(const char *command, const char *authorization, const char *accept = "application/json", const char *host = SPOTIFY_HOST);
-	// int makeRequestWithBody(const char *type, const char *command, const char *authorization, const char *body = "", const char *contentType = "application/json", const char *host = SPOTIFY_HOST);
-	// int makePostRequest(const char *command, const char *authorization, const char *body = "", const char *contentType = "application/json", const char *host = SPOTIFY_HOST);
-	// int makePutRequest(const char *command, const char *authorization, const char *body = "", const char *contentType = "application/json", const char *host = SPOTIFY_HOST);
 
 	// Helper
 	int getTokenLifetime();
@@ -74,49 +70,11 @@ public:
 	// Graph Presence Methods
 	GraphPresence getUserPresence();
 
-	// // User methods
-	// CurrentlyPlaying getCurrentlyPlaying(const char *market = "");
-	// PlayerDetails getPlayerDetails(const char *market = "");
-	// bool play(const char *deviceId = "");
-	// bool playAdvanced(char *body, const char *deviceId = "");
-	// bool pause(const char *deviceId = "");
-	// bool setVolume(int volume, const char *deviceId = "");
-	// bool toggleShuffle(bool shuffle, const char *deviceId = "");
-	// bool setRepeatMode(RepeatOptions repeat, const char *deviceId = "");
-	// bool nextTrack(const char *deviceId = "");
-	// bool previousTrack(const char *deviceId = "");
-	// bool playerControl(char *command, const char *deviceId = "", const char *body = "");
-	// bool playerNavigate(char *command, const char *deviceId = "");
-	// bool seek(int position, const char *deviceId = "");
-
-	// // Image methods
-	// bool getImage(char *imageUrl, Stream *file);
-
-	// int portNumber = 443;
-	// int tagArraySize = 10;
-	// int currentlyPlayingBufferSize = 10000;
-	// int playerDetailsBufferSize = 10000;
-	// bool autoTokenRefresh = true;
-	Client *client;
-
 private:
 	const char *_clientId;
 	const char *_tenant;
 
 	GraphAuthContext _context;
-
-	// const char *_clientSecret;
-	// unsigned int timeTokenRefreshed;
-	// unsigned int tokenTimeToLiveMs;
-	// int getContentLength();
-	// int getHttpStatusCode();
-	// void skipHeaders(bool tossUnexpectedForJSON = true);
-	// void closeClient();
-	// void parseError();
-	// const char *requestAccessTokensBody =
-	//     R"(grant_type=authorization_code&code=%s&redirect_uri=%s&client_id=%s&client_secret=%s)";
-	// const char *refreshAccessTokensBody =
-	//     R"(grant_type=refresh_token&refresh_token=%s&client_id=%s&client_secret=%s)";
 };
 
 #endif
