@@ -385,15 +385,15 @@ GraphPresence ArduinoMSGraph::getUserPresence() {
 /**
  * Get {count} next events in the users calendar.
  * 
- * @param events GraphEvent array passed as reference to hold the results.
  * @param count Number of events of request.
  * @param timezone Timezone in which the times should be returned. Default "Europe/Berlin"
- * @returns GraphError object
+ * @returns Vector of GraphEvent structures to hold the result.
  */
-GraphError ArduinoMSGraph::getUserEvents(GraphEvent *events, int count, const char *timezone) {
+std::vector<GraphEvent> ArduinoMSGraph::getUserEvents(int count, const char *timezone) {
 	// See: https://docs.microsoft.com/en-us/graph/api/user-list-events?view=graph-rest-1.0
 	GraphError resultError;
 	resultError.tokenNeedsRefresh = false;
+	std::vector<GraphEvent> result;
 
 	const size_t capacity = 10000;
 	DynamicJsonDocument responseDoc(capacity);
@@ -403,7 +403,7 @@ GraphError ArduinoMSGraph::getUserEvents(GraphEvent *events, int count, const ch
 
 	char timezoneParam[129];
 	sprintf(timezoneParam, "outlook.timezone=\"%s\"", timezone);
-	GraphRequestHeader extraHeader = {"Prefer", timezoneParam};
+	GraphRequestHeader extraHeader = { "Prefer", timezoneParam };
 	bool res = requestJsonApi(responseDoc, url, "", "GET", true, extraHeader);
 
 	// serializeJsonPretty(responseDoc, Serial);
@@ -413,11 +413,15 @@ GraphError ArduinoMSGraph::getUserEvents(GraphEvent *events, int count, const ch
 	} else if (responseDoc.containsKey("error")) {
 		const char* _error_code = responseDoc["error"]["code"];
 		if (strcmp(_error_code, "InvalidAuthenticationToken") == 0) {
-			DBG_PRINTLN(F("pollPresence() - Refresh needed"));
+			#ifdef MSGRAPH_DEBUG
+				DBG_PRINTLN(F("getUserEvents() - Refresh needed"));
+			#endif
 
 			resultError.tokenNeedsRefresh = true;
 		} else {
-			Serial.printf("pollPresence() - Error: %s\n", _error_code);
+			#ifdef MSGRAPH_DEBUG
+				Serial.printf("getUserEvents() - Error: %s\n", _error_code);
+			#endif
 		}
 
 		strncpy(resultError.message, _error_code, sizeof(resultError.message));
@@ -427,36 +431,25 @@ GraphError ArduinoMSGraph::getUserEvents(GraphEvent *events, int count, const ch
 		if (responseDoc.containsKey("value")) {
 			JsonArray items = responseDoc["value"];
 
-			unsigned int i = 0;
 			for (JsonObject item : items) {
-				// DBG_PRINTLN((char *)item["subject"].as<char *>());
-				// DBG_PRINTLN((char *)item["location"]["displayName"].as<char *>());
-				// // DBG_PRINTLN((char *)item["bodyPreview"].as<char *>());
-				// DBG_PRINT((char *)item["start"]["dateTime"].as<char *>());
-				// DBG_PRINTLN((char *)item["start"]["timeZone"].as<char *>());
-				// DBG_PRINT((char *)item["end"]["dateTime"].as<char *>());
-				// DBG_PRINTLN((char *)item["end"]["timeZone"].as<char *>());
+				GraphEvent event;
+				event.id = (char *)item["id"].as<char *>();
+				event.subject = (char *)item["subject"].as<char *>();
+				event.locationTitle = (char *)item["location"]["displayName"].as<char *>();
+				event.bodyPreview = (char *)item["bodyPreview"].as<char *>();
+				event.startDate.dateTime = (char *)item["start"]["dateTime"].as<char *>();
+				event.startDate.timeZone = (char *)item["start"]["timeZone"].as<char *>();
+				event.endDate.dateTime = (char *)item["end"]["dateTime"].as<char *>();
+				event.endDate.timeZone = (char *)item["end"]["timeZone"].as<char *>();
 
-				events[i].id = (char *)item["id"].as<char *>();
-				events[i].subject = (char *)item["subject"].as<char *>();
-				events[i].locationTitle = (char *)item["location"]["displayName"].as<char *>();
-				events[i].bodyPreview = (char *)item["bodyPreview"].as<char *>();
-				events[i].startDate.dateTime = (char *)item["start"]["dateTime"].as<char *>();
-				events[i].startDate.timeZone = (char *)item["start"]["timeZone"].as<char *>();
-				events[i].endDate.dateTime = (char *)item["end"]["dateTime"].as<char *>();
-				events[i].endDate.timeZone = (char *)item["end"]["timeZone"].as<char *>();
-				i++;
-			}
-
-			for (int i = 0; i < sizeof(events); i++) {
-				GraphEvent currentEvent = events[i];
-				DBG_PRINTLN(events[i].subject);
-				delay(300);
+				result.push_back(event);
 			}
 		}
 		resultError.hasError = false;
 	}
-	return resultError;
+
+	this->_lastError = resultError;
+	return result;
 }
 
 
@@ -467,4 +460,14 @@ GraphError ArduinoMSGraph::getUserEvents(GraphEvent *events, int count, const ch
  */
 int ArduinoMSGraph::getTokenLifetime() {
 	return (_context.expires - millis()) / 1000;
+}
+
+
+/**
+ * Return the error object for the last request
+ * 
+ * @returns Error object of the last request
+ */
+GraphError ArduinoMSGraph::getLastError() {
+	return this->_lastError;
 }

@@ -20,51 +20,50 @@
 #define CONTEXT_FILE "/graph_context.json"			// Filename of the context file
 
 #include <Arduino.h>
+#include <vector>
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
 #include "SPIFFS.h"
 
-struct GraphError {
+typedef struct {
 	bool hasError;
 	bool tokenNeedsRefresh;
 	char message[257];
-};
+} GraphError;
 
-struct GraphAuthContext {
+typedef struct {
 	char access_token[4097];
 	char refresh_token[2049];	// https://docs.microsoft.com/en-us/linkedin/shared/authentication/programmatic-refresh-tokens#sample-response
 	char id_token[4097];
 	unsigned long expires;
-};
+} GraphAuthContext;
 
-struct GraphRequestHeader {
+typedef struct {
 	const char *name;
 	const char *payload;
-};
+} GraphRequestHeader;
 
-struct GraphPresence {
+typedef struct {
 	char id[37];
 	char availability [33];
 	char activity[33];
 
 	GraphError error;
-};
+} GraphPresence;
 
-struct graphDate {
+typedef struct {
 	char *dateTime;
 	char *timeZone;
-};
-typedef struct graphDate GraphDate;
+} GraphDate;
 
-struct graphEvent {
+typedef struct {
 	char *id;
 	char *subject;
 	char *bodyPreview;
 	char *locationTitle;
 	GraphDate startDate;
 	GraphDate endDate;
-};
-typedef struct graphEvent GraphEvent;
+} GraphEvent;
 
 
 class ArduinoMSGraph {
@@ -79,6 +78,7 @@ public:
 
 	// Helper
 	int getTokenLifetime();
+	GraphError getLastError();
 
 	// SPIFFS Helper
 	bool saveContextToSPIFFS();
@@ -90,15 +90,16 @@ public:
 	bool pollForToken(JsonDocument &doc, const char *device_code);
 	bool refreshToken();
 
-	// Graph Presence Methods
+	// Graph Data Methods
 	GraphPresence getUserPresence();
-	GraphError getUserEvents(GraphEvent *events, int count = 3, const char *timezone = "Europe/Berlin");
+	std::vector<GraphEvent> getUserEvents(int count = 3, const char *timezone = "Europe/Berlin");
 
 private:
 	const char *_clientId;
 	const char *_tenant;
 
 	GraphAuthContext _context;
+	GraphError _lastError;
 };
 
 #endif
