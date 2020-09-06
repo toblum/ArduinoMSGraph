@@ -349,17 +349,19 @@ bool ArduinoMSGraph::removeContextFromSPIFFS() {
  */
 GraphPresence ArduinoMSGraph::getUserPresence() {
 	// See: https://github.com/microsoftgraph/microsoft-graph-docs/blob/ananya/api-reference/beta/resources/presence.md
-	GraphPresence result;
 	GraphError resultError;
 	resultError.tokenNeedsRefresh = false;
+	GraphPresence result;
 
-	const size_t capacity = JSON_OBJECT_SIZE(4) + 5120;
+	const size_t capacity = JSON_OBJECT_SIZE(4) + 512;
 	DynamicJsonDocument responseDoc(capacity);
 
 	bool res = requestJsonApi(responseDoc, "https://graph.microsoft.com/beta/me/presence", "", "GET", true);
+	// serializeJsonPretty(responseDoc, Serial);
 
 	if (!res) {
-		resultError.hasError = false;
+		resultError.hasError = true;
+		resultError.message = strdup("Request error");
 	} else if (responseDoc.containsKey("error")) {
 		const char* _error_code = responseDoc["error"]["code"];
 		if (strcmp(_error_code, "InvalidAuthenticationToken") == 0) {
@@ -370,13 +372,13 @@ GraphPresence ArduinoMSGraph::getUserPresence() {
 			Serial.printf("pollPresence() - Error: %s\n", _error_code);
 		}
 
-		strncpy(resultError.message, _error_code, sizeof(resultError.message));
+		resultError.message = (char *)responseDoc["error"]["code"].as<char *>();
 		resultError.hasError = true;
 	} else {
 		// Return presence info
-		strncpy(result.id, responseDoc["id"], sizeof(result.id));
-		strncpy(result.availability, responseDoc["availability"], sizeof(result.availability));
-		strncpy(result.activity, responseDoc["activity"], sizeof(result.activity));
+		result.id = (char *)responseDoc["id"].as<char *>();
+		result.availability = (char *)responseDoc["availability"].as<char *>();
+		result.activity = (char *)responseDoc["activity"].as<char *>();
 		resultError.hasError = false;
 	}
 
@@ -407,12 +409,13 @@ std::vector<GraphEvent> ArduinoMSGraph::getUserEvents(int count, const char *tim
 	char timezoneParam[129];
 	sprintf(timezoneParam, "outlook.timezone=\"%s\"", timezone);
 	GraphRequestHeader extraHeader = { "Prefer", timezoneParam };
-	bool res = requestJsonApi(responseDoc, url, "", "GET", true, extraHeader);
 
+	bool res = requestJsonApi(responseDoc, url, "", "GET", true, extraHeader);
 	// serializeJsonPretty(responseDoc, Serial);
 
 	if (!res) {
-		resultError.hasError = false;
+		resultError.hasError = true;
+		resultError.message = strdup("Request error");
 	} else if (responseDoc.containsKey("error")) {
 		const char* _error_code = responseDoc["error"]["code"];
 		if (strcmp(_error_code, "InvalidAuthenticationToken") == 0) {
@@ -427,7 +430,7 @@ std::vector<GraphEvent> ArduinoMSGraph::getUserEvents(int count, const char *tim
 			#endif
 		}
 
-		strncpy(resultError.message, _error_code, sizeof(resultError.message));
+		resultError.message = (char *)responseDoc["error"]["code"].as<char *>();
 		resultError.hasError = true;
 	} else {
 		// Return event info

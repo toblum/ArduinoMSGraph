@@ -28,7 +28,7 @@
 typedef struct {
 	bool hasError;
 	bool tokenNeedsRefresh;
-	char message[257];
+	char *message;
 } GraphError;
 
 typedef struct {
@@ -44,9 +44,9 @@ typedef struct {
 } GraphRequestHeader;
 
 typedef struct {
-	char id[37];
-	char availability [33];
-	char activity[33];
+	char *id;
+	char *availability;
+	char *activity;
 } GraphPresence;
 
 typedef struct {

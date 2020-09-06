@@ -114,24 +114,34 @@ void loop()
 	if (currentState == context_available) {
 		DBG_PRINTLN("##########################################");
 		DBG_PRINTLN("STATE: context_available");
-		// GraphPresence gp = graphClient.getUserPresence();
 
-		GraphEvent events[3];
+		GraphPresence gp = graphClient.getUserPresence();
+		GraphError gpe = graphClient.getLastError();
+		if (!gpe.hasError) {
+			DBG_PRINT("PRESENCE: ");
+			DBG_PRINT(gp.activity);
+			DBG_PRINT(" - ");
+			DBG_PRINTLN(gp.activity);
+		} else {
+			DBG_PRINT("GPE error: ");
+			DBG_PRINTLN(gpe.message);
+			if (gpe.tokenNeedsRefresh) {
+				currentState = token_needs_refresh;
+			}
+		}
 
-		GraphError gp = graphClient.getUserEvents(events, 3, "Europe/Paris");
-		if (!gp.hasError) {
-			// 	DBG_PRINT("activity: ");
-			// 	// DBG_PRINTLN(gp.activity);
-			// 	delay(30000);
-			for (int i = 0; i < sizeof(events); i++) {
-				GraphEvent currentEvent = events[i];
+		std::vector<GraphEvent> events = graphClient.getUserEvents(5, "Europe/Paris");
+		GraphError gee = graphClient.getLastError();
+		if (!gee.hasError) {
+			for (int i = 0; i < events.size(); i++) {
+				DBG_PRINT(events[i].startDate.dateTime);
+				DBG_PRINT(" - ");
 				DBG_PRINTLN(events[i].subject);
-				delay(300);
 			}
 		} else {
-			DBG_PRINT("GP error: ");
-			DBG_PRINTLN(gp.message);
-			if (gp.tokenNeedsRefresh) {
+			DBG_PRINT("GEE error: ");
+			DBG_PRINTLN(gee.message);
+			if (gee.tokenNeedsRefresh) {
 				currentState = token_needs_refresh;
 			}
 		}
