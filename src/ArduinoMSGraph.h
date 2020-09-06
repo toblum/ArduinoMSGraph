@@ -12,7 +12,7 @@
 #ifndef ArduinoMSGraph_h
 #define ArduinoMSGraph_h
 
-// #define MSGRAPH_DEBUG = 1
+#define MSGRAPH_DEBUG = 1
 
 #define DBG_PRINT(x) Serial.print(x)
 #define DBG_PRINTLN(x) Serial.println(x)
@@ -27,14 +27,19 @@
 struct GraphError {
 	bool hasError;
 	bool tokenNeedsRefresh;
-	char message[256];
+	char message[257];
 };
 
 struct GraphAuthContext {
-	char access_token[4096];
-	char refresh_token[2048];	// https://docs.microsoft.com/en-us/linkedin/shared/authentication/programmatic-refresh-tokens#sample-response
-	char id_token[4096];
+	char access_token[4097];
+	char refresh_token[2049];	// https://docs.microsoft.com/en-us/linkedin/shared/authentication/programmatic-refresh-tokens#sample-response
+	char id_token[4097];
 	unsigned long expires;
+};
+
+struct GraphRequestHeader {
+	const char *name;
+	const char *payload;
 };
 
 struct GraphPresence {
@@ -45,6 +50,22 @@ struct GraphPresence {
 	GraphError error;
 };
 
+struct graphDate {
+	char *dateTime;
+	char *timeZone;
+};
+typedef struct graphDate GraphDate;
+
+struct graphEvent {
+	char *id;
+	char *subject;
+	char *bodyPreview;
+	char *locationTitle;
+	GraphDate startDate;
+	GraphDate endDate;
+};
+typedef struct graphEvent GraphEvent;
+
 
 class ArduinoMSGraph {
 public:
@@ -54,7 +75,7 @@ public:
 	ArduinoMSGraph(Client &client, const char *tenant, const char *clientId);
 
 	// Generic Request Methods
-	bool requestJsonApi(JsonDocument &doc, const char *url, const char *payload = "", const char *method = "POST", bool sendAuth = false);
+	bool requestJsonApi(JsonDocument &doc, const char *url, const char *payload = "", const char *method = "POST", bool sendAuth = false, GraphRequestHeader extraHeader = {});
 
 	// Helper
 	int getTokenLifetime();
@@ -71,6 +92,7 @@ public:
 
 	// Graph Presence Methods
 	GraphPresence getUserPresence();
+	GraphError getUserEvents(GraphEvent *events, int count = 3, const char *timezone = "Europe/Berlin");
 
 private:
 	const char *_clientId;

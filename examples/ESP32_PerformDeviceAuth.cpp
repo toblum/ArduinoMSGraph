@@ -74,7 +74,7 @@ void loop()
 		DBG_PRINTLN("##########################################");
 		DBG_PRINTLN("STATE: no_context");
 		// Start device login flow
-		graphClient.startDeviceLoginFlow(deviceCodeDoc);
+		graphClient.startDeviceLoginFlow(deviceCodeDoc, "offline_access%20openid%20Presence.Read%20Calendars.Read");
 
 		// Consume result
 		deviceCode = deviceCodeDoc["device_code"].as<const char*>();
@@ -114,24 +114,35 @@ void loop()
 	if (currentState == context_available) {
 		DBG_PRINTLN("##########################################");
 		DBG_PRINTLN("STATE: context_available");
-		GraphPresence gp = graphClient.getUserPresence();
-		if (!gp.error.hasError) {
-			DBG_PRINT("activity: ");
-			DBG_PRINTLN(gp.activity);
-			delay(30000);
+		// GraphPresence gp = graphClient.getUserPresence();
+
+		GraphEvent events[3];
+
+		GraphError gp = graphClient.getUserEvents(events, 3, "Europe/Paris");
+		if (!gp.hasError) {
+			// 	DBG_PRINT("activity: ");
+			// 	// DBG_PRINTLN(gp.activity);
+			// 	delay(30000);
+			for (int i = 0; i < sizeof(events); i++) {
+				GraphEvent currentEvent = events[i];
+				DBG_PRINTLN(events[i].subject);
+				delay(300);
+			}
 		} else {
-			DBG_PRINT("gp error: ");
-			DBG_PRINTLN(gp.error.message);
-			if (gp.error.tokenNeedsRefresh) {
+			DBG_PRINT("GP error: ");
+			DBG_PRINTLN(gp.message);
+			if (gp.tokenNeedsRefresh) {
 				currentState = token_needs_refresh;
 			}
-			delay(10000);
 		}
+		delay(15000);
 	}
 
 	if (currentState == token_needs_refresh) {
 		DBG_PRINTLN("##########################################");
 		DBG_PRINTLN("STATE: token_needs_refresh");
+		Serial.print("ESP.getFreeHeap(): ");
+		Serial.println(ESP.getFreeHeap());
 		bool res = graphClient.refreshToken();
 		if (res) {
 			graphClient.saveContextToSPIFFS();

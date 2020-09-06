@@ -36,13 +36,18 @@ ArduinoMSGraph::ArduinoMSGraph(Client &client, const char *tenant, const char *c
  * @param sendAuth If true, send the Bearer token together with the request.
  * @returns True if request successful, false on error.
  */
-bool ArduinoMSGraph::requestJsonApi(JsonDocument& responseDoc, const char *url, const char *payload, const char *method, bool sendAuth) {
+bool ArduinoMSGraph::requestJsonApi(JsonDocument& responseDoc, const char *url, const char *payload, const char *method, bool sendAuth, GraphRequestHeader extraHeader) {
 	const char* cert;
 	if (strstr(url, "graph.microsoft.com") != NULL) {
 		cert = rootCACertificateGraph;
 	} else {
 		cert = rootCACertificateLogin;
 	}
+
+	#ifdef MSGRAPH_DEBUG
+		DBG_PRINT("ESP.getFreeHeap(): ");
+		DBG_PRINTLN(ESP.getFreeHeap());
+	#endif
 
 	// HTTPClient
 	HTTPClient https;
@@ -61,6 +66,9 @@ bool ArduinoMSGraph::requestJsonApi(JsonDocument& responseDoc, const char *url, 
 			char authHeader[strlen(_context.access_token) + 8];
 			sprintf(authHeader, "Bearer %s", _context.access_token);
 			https.addHeader("Authorization", authHeader);
+			if (strlen(extraHeader.name) > 0) {
+				https.addHeader(extraHeader.name, extraHeader.payload);
+			}
 			#ifdef MSGRAPH_DEBUG
 				Serial.printf("[HTTPS] Auth token valid for %d s.\n", getTokenLifetime());
 			#endif
@@ -78,8 +86,10 @@ bool ArduinoMSGraph::requestJsonApi(JsonDocument& responseDoc, const char *url, 
 
 			// File found at server (HTTP 200, 301), or HTTP 400, 401 with response payload
 			if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY || httpCode == HTTP_CODE_BAD_REQUEST || httpCode == HTTP_CODE_UNAUTHORIZED) {
-				// String res = https.getString();
-				// DBG_PRINTLN(res);
+				// if (strstr(url, "events") != NULL) {
+				// 	String res = https.getString();
+				// 	DBG_PRINTLN(res);
+				// }
 
 				// Parse JSON data
 				DeserializationError error = deserializeJson(responseDoc, https.getStream());
@@ -369,6 +379,84 @@ GraphPresence ArduinoMSGraph::getUserPresence() {
 		result.error.hasError = false;
 	}
 	return result;
+}
+
+
+/**
+ * Get {count} next events in the users calendar.
+ * 
+ * @param events GraphEvent array passed as reference to hold the results.
+ * @param count Number of events of request.
+ * @param timezone Timezone in which the times should be returned. Default "Europe/Berlin"
+ * @returns GraphError object
+ */
+GraphError ArduinoMSGraph::getUserEvents(GraphEvent *events, int count, const char *timezone) {
+	// See: https://docs.microsoft.com/en-us/graph/api/user-list-events?view=graph-rest-1.0
+	GraphError resultError;
+	resultError.tokenNeedsRefresh = false;
+
+	const size_t capacity = 10000;
+	DynamicJsonDocument responseDoc(capacity);
+
+	char url[97 + 3];
+    sprintf(url, "https://graph.microsoft.com/v1.0/me/events?$select=subject,start,end,location,bodyPreview&$top=%d", count);
+
+	char timezoneParam[129];
+	sprintf(timezoneParam, "outlook.timezone=\"%s\"", timezone);
+	GraphRequestHeader extraHeader = {"Prefer", timezoneParam};
+	bool res = requestJsonApi(responseDoc, url, "", "GET", true, extraHeader);
+
+	// serializeJsonPretty(responseDoc, Serial);
+
+	if (!res) {
+		resultError.hasError = false;
+	} else if (responseDoc.containsKey("error")) {
+		const char* _error_code = responseDoc["error"]["code"];
+		if (strcmp(_error_code, "InvalidAuthenticationToken") == 0) {
+			DBG_PRINTLN(F("pollPresence() - Refresh needed"));
+
+			resultError.tokenNeedsRefresh = true;
+		} else {
+			Serial.printf("pollPresence() - Error: %s\n", _error_code);
+		}
+
+		strncpy(resultError.message, _error_code, sizeof(resultError.message));
+		resultError.hasError = true;
+	} else {
+		// Return event info
+		if (responseDoc.containsKey("value")) {
+			JsonArray items = responseDoc["value"];
+
+			unsigned int i = 0;
+			for (JsonObject item : items) {
+				// DBG_PRINTLN((char *)item["subject"].as<char *>());
+				// DBG_PRINTLN((char *)item["location"]["displayName"].as<char *>());
+				// // DBG_PRINTLN((char *)item["bodyPreview"].as<char *>());
+				// DBG_PRINT((char *)item["start"]["dateTime"].as<char *>());
+				// DBG_PRINTLN((char *)item["start"]["timeZone"].as<char *>());
+				// DBG_PRINT((char *)item["end"]["dateTime"].as<char *>());
+				// DBG_PRINTLN((char *)item["end"]["timeZone"].as<char *>());
+
+				events[i].id = (char *)item["id"].as<char *>();
+				events[i].subject = (char *)item["subject"].as<char *>();
+				events[i].locationTitle = (char *)item["location"]["displayName"].as<char *>();
+				events[i].bodyPreview = (char *)item["bodyPreview"].as<char *>();
+				events[i].startDate.dateTime = (char *)item["start"]["dateTime"].as<char *>();
+				events[i].startDate.timeZone = (char *)item["start"]["timeZone"].as<char *>();
+				events[i].endDate.dateTime = (char *)item["end"]["dateTime"].as<char *>();
+				events[i].endDate.timeZone = (char *)item["end"]["timeZone"].as<char *>();
+				i++;
+			}
+
+			for (int i = 0; i < sizeof(events); i++) {
+				GraphEvent currentEvent = events[i];
+				DBG_PRINTLN(events[i].subject);
+				delay(300);
+			}
+		}
+		resultError.hasError = false;
+	}
+	return resultError;
 }
 
 
