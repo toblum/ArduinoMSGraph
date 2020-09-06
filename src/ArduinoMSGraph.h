@@ -32,9 +32,9 @@ typedef struct {
 } GraphError;
 
 typedef struct {
-	char access_token[4097];
-	char refresh_token[2049];	// https://docs.microsoft.com/en-us/linkedin/shared/authentication/programmatic-refresh-tokens#sample-response
-	char id_token[4097];
+	char *access_token;
+	char *refresh_token;	// https://docs.microsoft.com/en-us/linkedin/shared/authentication/programmatic-refresh-tokens#sample-response
+	char *id_token;
 	unsigned long expires;
 } GraphAuthContext;
 

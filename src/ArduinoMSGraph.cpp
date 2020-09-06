@@ -179,9 +179,9 @@ bool ArduinoMSGraph::pollForToken(JsonDocument &responseDoc, const char *device_
 	} else {
 		if (responseDoc.containsKey("access_token") && responseDoc.containsKey("refresh_token")) {
 			// Store tokens in context
-			strncpy(_context.access_token, responseDoc["access_token"], sizeof(_context.access_token));
-			strncpy(_context.refresh_token, responseDoc["refresh_token"], sizeof(_context.refresh_token));
-			strncpy(_context.id_token, responseDoc["id_token"], sizeof(_context.id_token));
+			_context.access_token = strdup(responseDoc["access_token"].as<char *>());
+			_context.refresh_token = strdup(responseDoc["refresh_token"].as<char *>());
+			_context.id_token = strdup(responseDoc["id_token"].as<char *>());
 			unsigned int _expires_in = responseDoc["expires_in"].as<unsigned long>();
 			_context.expires = millis() + (_expires_in * 1000); // Calculate timestamp when token expires
 
@@ -202,6 +202,8 @@ bool ArduinoMSGraph::pollForToken(JsonDocument &responseDoc, const char *device_
 bool ArduinoMSGraph::refreshToken() {
 	#ifdef MSGRAPH_DEBUG
 		DBG_PRINTLN(F("refreshToken()"));
+		DBG_PRINTLN(_context.refresh_token);
+		DBG_PRINTLN(strlen(_context.refresh_token));
 	#endif
 	// See: https://docs.microsoft.com/de-de/azure/active-directory/develop/v1-protocols-oauth-code#refreshing-the-access-tokens
 
@@ -220,15 +222,15 @@ bool ArduinoMSGraph::refreshToken() {
 	// Replace tokens and expiration
 	if (res && responseDoc.containsKey("access_token") && responseDoc.containsKey("refresh_token")) {
 		if (!responseDoc["access_token"].isNull()) {
-			strncpy(_context.access_token, responseDoc["access_token"], sizeof(_context.access_token));
+			_context.access_token = strdup(responseDoc["access_token"].as<char *>());
 			success = true;
 		}
 		if (!responseDoc["refresh_token"].isNull()) {
-			strncpy(_context.refresh_token, responseDoc["refresh_token"], sizeof(_context.refresh_token));
+			_context.refresh_token = strdup(responseDoc["refresh_token"].as<char *>());
 			success = true;
 		}
 		if (!responseDoc["id_token"].isNull()) {
-			strncpy(_context.id_token, responseDoc["id_token"], sizeof(_context.id_token));
+			_context.id_token = strdup(responseDoc["id_token"].as<char *>());
 		}
 		if (!responseDoc["expires_in"].isNull()) {
 			int _expires_in = responseDoc["expires_in"].as<unsigned long>();
@@ -299,15 +301,15 @@ bool ArduinoMSGraph::readContextFromSPIFFS() {
 			} else {
 				int numSettings = 0;
 				if (!contextDoc["access_token"].isNull()) {
-					strncpy(_context.access_token, contextDoc["access_token"], sizeof(_context.access_token));
+					_context.access_token = strdup(contextDoc["access_token"].as<char *>());
 					numSettings++;
 				}
 				if (!contextDoc["refresh_token"].isNull()) {
-					strncpy(_context.refresh_token, contextDoc["refresh_token"], sizeof(_context.refresh_token));
+					_context.refresh_token = strdup(contextDoc["refresh_token"].as<char *>());
 					numSettings++;
 				}
 				if (!contextDoc["id_token"].isNull()){
-					strncpy(_context.id_token, contextDoc["id_token"], sizeof(_context.id_token));
+					_context.id_token = strdup(contextDoc["id_token"].as<char *>());
 				}
 				_context.expires = 0;
 				if (numSettings >= 2) {
