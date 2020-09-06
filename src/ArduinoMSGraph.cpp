@@ -66,7 +66,7 @@ bool ArduinoMSGraph::requestJsonApi(JsonDocument& responseDoc, const char *url, 
 			char authHeader[strlen(_context.access_token) + 8];
 			sprintf(authHeader, "Bearer %s", _context.access_token);
 			https.addHeader("Authorization", authHeader);
-			if (strlen(extraHeader.name) > 0) {
+			if (extraHeader.name != NULL && strlen(extraHeader.name) > 0) {
 				https.addHeader(extraHeader.name, extraHeader.payload);
 			}
 			#ifdef MSGRAPH_DEBUG
@@ -350,34 +350,37 @@ bool ArduinoMSGraph::removeContextFromSPIFFS() {
 GraphPresence ArduinoMSGraph::getUserPresence() {
 	// See: https://github.com/microsoftgraph/microsoft-graph-docs/blob/ananya/api-reference/beta/resources/presence.md
 	GraphPresence result;
-	result.error.tokenNeedsRefresh = false;
+	GraphError resultError;
+	resultError.tokenNeedsRefresh = false;
 
-	const size_t capacity = JSON_OBJECT_SIZE(4) + 512;
+	const size_t capacity = JSON_OBJECT_SIZE(4) + 5120;
 	DynamicJsonDocument responseDoc(capacity);
 
 	bool res = requestJsonApi(responseDoc, "https://graph.microsoft.com/beta/me/presence", "", "GET", true);
 
 	if (!res) {
-		result.error.hasError = false;
+		resultError.hasError = false;
 	} else if (responseDoc.containsKey("error")) {
 		const char* _error_code = responseDoc["error"]["code"];
 		if (strcmp(_error_code, "InvalidAuthenticationToken") == 0) {
 			DBG_PRINTLN(F("pollPresence() - Refresh needed"));
 
-			result.error.tokenNeedsRefresh = true;
+			resultError.tokenNeedsRefresh = true;
 		} else {
 			Serial.printf("pollPresence() - Error: %s\n", _error_code);
 		}
 
-		strncpy(result.error.message, _error_code, sizeof(result.error.message));
-		result.error.hasError = true;
+		strncpy(resultError.message, _error_code, sizeof(resultError.message));
+		resultError.hasError = true;
 	} else {
 		// Return presence info
 		strncpy(result.id, responseDoc["id"], sizeof(result.id));
 		strncpy(result.availability, responseDoc["availability"], sizeof(result.availability));
 		strncpy(result.activity, responseDoc["activity"], sizeof(result.activity));
-		result.error.hasError = false;
+		resultError.hasError = false;
 	}
+
+	this->_lastError = resultError;
 	return result;
 }
 

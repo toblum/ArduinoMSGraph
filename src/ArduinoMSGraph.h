@@ -47,8 +47,6 @@ typedef struct {
 	char id[37];
 	char availability [33];
 	char activity[33];
-
-	GraphError error;
 } GraphPresence;
 
 typedef struct {
@@ -74,7 +72,7 @@ public:
 	ArduinoMSGraph(Client &client, const char *tenant, const char *clientId);
 
 	// Generic Request Methods
-	bool requestJsonApi(JsonDocument &doc, const char *url, const char *payload = "", const char *method = "POST", bool sendAuth = false, GraphRequestHeader extraHeader = {});
+	bool requestJsonApi(JsonDocument &doc, const char *url, const char *payload = "", const char *method = "POST", bool sendAuth = false, GraphRequestHeader extraHeader = { NULL, NULL });
 
 	// Helper
 	int getTokenLifetime();
