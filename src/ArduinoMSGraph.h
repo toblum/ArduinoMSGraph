@@ -26,8 +26,8 @@
 #include "SPIFFS.h"
 
 typedef struct {
-	bool hasError;
-	bool tokenNeedsRefresh;
+	bool hasError = false;
+	bool tokenNeedsRefresh = false;
 	char *message;
 } GraphError;
 
@@ -98,6 +98,8 @@ private:
 
 	GraphAuthContext _context;
 	GraphError _lastError;
+
+	void _handleApiError(JsonDocument &errorDoc, GraphError &errorObject);
 };
 
 #endif

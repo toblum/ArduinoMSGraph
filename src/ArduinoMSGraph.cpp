@@ -14,7 +14,7 @@
 
 /**
  * Create a new ArduinoMSGraph instance
- *  
+ * 
  * @param client WiFiClient to pass to ArduinoMSGraph
  * @param tenant GUID or name of the tenant (e.g. contoso.onmicrosoft.com)
  * @param clientID Client ID of the Azure AD app
@@ -34,6 +34,7 @@ ArduinoMSGraph::ArduinoMSGraph(Client &client, const char *tenant, const char *c
  * @param payload Raw payload to send together with the request.
  * @param method Method for the HTTP request: GET, POST, ...
  * @param sendAuth If true, send the Bearer token together with the request.
+ * 
  * @returns True if request successful, false on error.
  */
 bool ArduinoMSGraph::requestJsonApi(JsonDocument& responseDoc, const char *url, const char *payload, const char *method, bool sendAuth, GraphRequestHeader extraHeader) {
@@ -70,7 +71,7 @@ bool ArduinoMSGraph::requestJsonApi(JsonDocument& responseDoc, const char *url, 
 				https.addHeader(extraHeader.name, extraHeader.payload);
 			}
 			#ifdef MSGRAPH_DEBUG
-				Serial.printf("[HTTPS] Auth token valid for %d s.\n", getTokenLifetime());
+				Serial.printf("requestJsonApi() - Auth token valid for %d s.\n", getTokenLifetime());
 			#endif
 		}
 
@@ -81,7 +82,7 @@ bool ArduinoMSGraph::requestJsonApi(JsonDocument& responseDoc, const char *url, 
 		if (httpCode > 0) {
 			// HTTP header has been send and Server response header has been handled
 			#ifdef MSGRAPH_DEBUG
-				Serial.printf("[HTTPS] Method: %s, Response code: %d\n", method, httpCode);
+				Serial.printf("requestJsonApi() - Method: %s, Response code: %d\n", method, httpCode);
 			#endif
 
 			// File found at server (HTTP 200, 301), or HTTP 400, 401 with response payload
@@ -94,7 +95,7 @@ bool ArduinoMSGraph::requestJsonApi(JsonDocument& responseDoc, const char *url, 
 				// Parse JSON data
 				DeserializationError error = deserializeJson(responseDoc, https.getStream());
 				if (error) {
-					DBG_PRINT(F("deserializeJson() failed: "));
+					DBG_PRINT(F("requestJsonApi() - deserializeJson() failed: "));
 					DBG_PRINTLN(error.c_str());
 					https.end();
 					return false;
@@ -103,18 +104,18 @@ bool ArduinoMSGraph::requestJsonApi(JsonDocument& responseDoc, const char *url, 
 					return true;
 				}
 			} else {
-				Serial.printf("[HTTPS] Other HTTP code: %d\nResponse: ", httpCode);
+				Serial.printf("requestJsonApi() - Other HTTP code: %d\nResponse: ", httpCode);
 				DBG_PRINTLN(https.getString());
 				https.end();
 				return false;
 			}
 		} else {
-			Serial.printf("[HTTPS] Request failed: %s\n", https.errorToString(httpCode).c_str());
+			Serial.printf("requestJsonApi() - Request failed: %s\n", https.errorToString(httpCode).c_str());
 			https.end();
 			return false;
 		}
     } else {
-    	DBG_PRINTLN(F("[HTTPS] Unable to connect"));
+    	DBG_PRINTLN(F("requestJsonApi() - Unable to connect"));
 		return false;
     }
 }
@@ -126,6 +127,7 @@ bool ArduinoMSGraph::requestJsonApi(JsonDocument& responseDoc, const char *url, 
  * @param responseDoc JsonDocument passed as reference to hold the result.
  * Reserve a size of at least: JSON_OBJECT_SIZE(6) + 540
  * @param scope The scope to request from Azure AD.
+ * 
  * @returns True if request successful, false on error
  */
 bool ArduinoMSGraph::startDeviceLoginFlow(JsonDocument &responseDoc, const char *scope) {
@@ -150,6 +152,7 @@ bool ArduinoMSGraph::startDeviceLoginFlow(JsonDocument &responseDoc, const char 
  * @param responseDoc JsonDocument passed as reference to hold the result.
  * Reserve a size of at least: JSON_ARRAY_SIZE(1) + JSON_OBJECT_SIZE(7) + 530, better: 10000
  * @param device_code The device code to poll for.
+ * 
  * @returns True if token is available, if false, continue polling.
  */
 bool ArduinoMSGraph::pollForToken(JsonDocument &responseDoc, const char *device_code) {
@@ -202,7 +205,7 @@ bool ArduinoMSGraph::pollForToken(JsonDocument &responseDoc, const char *device_
 bool ArduinoMSGraph::refreshToken() {
 	#ifdef MSGRAPH_DEBUG
 		DBG_PRINTLN(F("refreshToken()"));
-		DBG_PRINTLN(_context.refresh_token);
+		// DBG_PRINTLN(_context.refresh_token);
 		DBG_PRINTLN(strlen(_context.refresh_token));
 	#endif
 	// See: https://docs.microsoft.com/de-de/azure/active-directory/develop/v1-protocols-oauth-code#refreshing-the-access-tokens
@@ -285,18 +288,18 @@ bool ArduinoMSGraph::readContextFromSPIFFS() {
 	bool success = false;
 
 	if (!file) {
-		DBG_PRINTLN(F("loadContext() - No file found"));
+		DBG_PRINTLN(F("readContextFromSPIFFS() - No file found"));
 	} else {
 		size_t size = file.size();
 		if (size == 0) {
-			DBG_PRINTLN(F("loadContext() - File empty"));
+			DBG_PRINTLN(F("readContextFromSPIFFS() - File empty"));
 		} else {
 			const int capacity = JSON_OBJECT_SIZE(3) + 5000;
 			DynamicJsonDocument contextDoc(capacity);
 			DeserializationError err = deserializeJson(contextDoc, file);
 
 			if (err) {
-				DBG_PRINT(F("loadContext() - deserializeJson() failed with code: "));
+				DBG_PRINT(F("readContextFromSPIFFS() - deserializeJson() failed with code: "));
 				DBG_PRINTLN(err.c_str());
 			} else {
 				int numSettings = 0;
@@ -314,11 +317,11 @@ bool ArduinoMSGraph::readContextFromSPIFFS() {
 				_context.expires = 0;
 				if (numSettings >= 2) {
 					#ifdef MSGRAPH_DEBUG
-						DBG_PRINTLN(F("loadContext() - Success"));
+						DBG_PRINTLN(F("readContextFromSPIFFS() - Success"));
 					#endif
 					success = true;
 				} else {
-					Serial.printf("loadContext() - ERROR Number of valid settings in file: %d, should greater or equals 2.\n", numSettings);
+					Serial.printf("readContextFromSPIFFS() - ERROR Number of valid settings in file: %d, should greater or equals 2.\n", numSettings);
 				}
 				// DBG_PRINTLN(contextDoc.as<String>());
 			}
@@ -352,7 +355,6 @@ bool ArduinoMSGraph::removeContextFromSPIFFS() {
 GraphPresence ArduinoMSGraph::getUserPresence() {
 	// See: https://github.com/microsoftgraph/microsoft-graph-docs/blob/ananya/api-reference/beta/resources/presence.md
 	GraphError resultError;
-	resultError.tokenNeedsRefresh = false;
 	GraphPresence result;
 
 	const size_t capacity = JSON_OBJECT_SIZE(4) + 512;
@@ -365,23 +367,12 @@ GraphPresence ArduinoMSGraph::getUserPresence() {
 		resultError.hasError = true;
 		resultError.message = strdup("Request error");
 	} else if (responseDoc.containsKey("error")) {
-		const char* _error_code = responseDoc["error"]["code"];
-		if (strcmp(_error_code, "InvalidAuthenticationToken") == 0) {
-			DBG_PRINTLN(F("pollPresence() - Refresh needed"));
-
-			resultError.tokenNeedsRefresh = true;
-		} else {
-			Serial.printf("pollPresence() - Error: %s\n", _error_code);
-		}
-
-		resultError.message = (char *)responseDoc["error"]["code"].as<char *>();
-		resultError.hasError = true;
+		_handleApiError(responseDoc, resultError);
 	} else {
 		// Return presence info
 		result.id = (char *)responseDoc["id"].as<char *>();
 		result.availability = (char *)responseDoc["availability"].as<char *>();
 		result.activity = (char *)responseDoc["activity"].as<char *>();
-		resultError.hasError = false;
 	}
 
 	this->_lastError = resultError;
@@ -394,12 +385,12 @@ GraphPresence ArduinoMSGraph::getUserPresence() {
  * 
  * @param count Number of events of request.
  * @param timezone Timezone in which the times should be returned. Default "Europe/Berlin"
+ * 
  * @returns Vector of GraphEvent structures to hold the result.
  */
 std::vector<GraphEvent> ArduinoMSGraph::getUserEvents(int count, const char *timezone) {
 	// See: https://docs.microsoft.com/en-us/graph/api/user-list-events?view=graph-rest-1.0
 	GraphError resultError;
-	resultError.tokenNeedsRefresh = false;
 	std::vector<GraphEvent> result;
 
 	const size_t capacity = 10000;
@@ -419,21 +410,7 @@ std::vector<GraphEvent> ArduinoMSGraph::getUserEvents(int count, const char *tim
 		resultError.hasError = true;
 		resultError.message = strdup("Request error");
 	} else if (responseDoc.containsKey("error")) {
-		const char* _error_code = responseDoc["error"]["code"];
-		if (strcmp(_error_code, "InvalidAuthenticationToken") == 0) {
-			#ifdef MSGRAPH_DEBUG
-				DBG_PRINTLN(F("getUserEvents() - Refresh needed"));
-			#endif
-
-			resultError.tokenNeedsRefresh = true;
-		} else {
-			#ifdef MSGRAPH_DEBUG
-				Serial.printf("getUserEvents() - Error: %s\n", _error_code);
-			#endif
-		}
-
-		resultError.message = (char *)responseDoc["error"]["code"].as<char *>();
-		resultError.hasError = true;
+		_handleApiError(responseDoc, resultError);
 	} else {
 		// Return event info
 		if (responseDoc.containsKey("value")) {
@@ -453,11 +430,35 @@ std::vector<GraphEvent> ArduinoMSGraph::getUserEvents(int count, const char *tim
 				result.push_back(event);
 			}
 		}
-		resultError.hasError = false;
 	}
 
 	this->_lastError = resultError;
 	return result;
+}
+
+
+/**
+ * Handle erros returned in errorDoc and set errorObject accordingly
+ * 
+ * @param errorDoc Response from the Graph API that contains a error
+ * @param errorObject GraphError object to hold the error informnations
+ */
+void ArduinoMSGraph::_handleApiError(JsonDocument &errorDoc, GraphError &errorObject) {
+	const char* _error_code = errorDoc["error"]["code"];
+	if (strcmp(_error_code, "InvalidAuthenticationToken") == 0) {
+		#ifdef MSGRAPH_DEBUG
+			DBG_PRINTLN(F("_handleApiError() - Refresh needed"));
+		#endif
+
+		errorObject.tokenNeedsRefresh = true;
+	} else {
+		#ifdef MSGRAPH_DEBUG
+			Serial.printf("_handleApiError() - Other error: %s\n", _error_code);
+		#endif
+	}
+
+	errorObject.message = (char *)errorDoc["error"]["code"].as<char *>();
+	errorObject.hasError = true;
 }
 
 
