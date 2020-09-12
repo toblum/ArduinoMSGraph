@@ -19,8 +19,7 @@
  * @param tenant GUID or name of the tenant (e.g. contoso.onmicrosoft.com)
  * @param clientID Client ID of the Azure AD app
  */
-ArduinoMSGraph::ArduinoMSGraph(Client &client, const char *tenant, const char *clientId) {
-    this->client = &client;
+ArduinoMSGraph::ArduinoMSGraph(const char *tenant, const char *clientId) {
     this->_tenant = tenant;
     this->_clientId = clientId;
 }
