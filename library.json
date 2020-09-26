@@ -1,8 +1,8 @@
 {
     "name": "ArduinoMSGraph",
-    "version": "0.1.0",
-    "description": "A library to wrap the Microsoft Graph API (supports ESP32 & possibly others)",
-    "keywords": "communication, microsoft, arduino, library, esp32",
+    "version": "0.2.0",
+    "description": "A library to wrap the Microsoft Graph API using device code flow for authentication (supports ESP32 & possibly others)",
+    "keywords": "communication, microsoft, arduino, library, esp32, microsoft graph",
     "repository": {
         "type": "git",
         "url": "https://github.com/toblum/ArduinoMSGraph.git"
@@ -15,7 +15,7 @@
             "maintainer": true
         }
     ],
-    "license": "Mozilla Public License 2.0",
+    "license": "MPL-2.0",
     "homepage": "https://github.com/toblum/ArduinoMSGraph",
     "dependencies": {
         "ArduinoJson": "^6.16.0"
