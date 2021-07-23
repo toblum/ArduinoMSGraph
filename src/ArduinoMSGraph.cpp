@@ -19,7 +19,8 @@
  * @param tenant GUID or name of the tenant (e.g. contoso.onmicrosoft.com)
  * @param clientID Client ID of the Azure AD app
  */
-ArduinoMSGraph::ArduinoMSGraph(const char *tenant, const char *clientId) {
+ArduinoMSGraph::ArduinoMSGraph(Client &client, const char *tenant, const char *clientId) {
+    this->client = &client;
     this->_tenant = tenant;
     this->_clientId = clientId;
 }
@@ -86,13 +87,15 @@ bool ArduinoMSGraph::requestJsonApi(JsonDocument& responseDoc, const char *url, 
 
 			// File found at server (HTTP 200, 301), or HTTP 400, 401 with response payload
 			if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY || httpCode == HTTP_CODE_BAD_REQUEST || httpCode == HTTP_CODE_UNAUTHORIZED) {
+				String payload = https.getString(); 
+				payload.replace("'", ""); // Delete single quotes
 				// if (strstr(url, "events") != NULL) {
-				// 	String res = https.getString();
-				// 	DBG_PRINTLN(res);
+				// 	DBG_PRINTLN(payload);
 				// }
 
 				// Parse JSON data
-				DeserializationError error = deserializeJson(responseDoc, https.getStream());
+				// DeserializationError error = deserializeJson(responseDoc, https.getStream());
+				DeserializationError error = deserializeJson(responseDoc, payload);
 				if (error) {
 					DBG_PRINT(F("requestJsonApi() - deserializeJson() failed: "));
 					DBG_PRINTLN(error.c_str());

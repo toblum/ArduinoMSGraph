@@ -69,7 +69,7 @@ public:
 	Client *client;
 
 	// Constructor
-	ArduinoMSGraph(const char *tenant, const char *clientId);
+	ArduinoMSGraph(Client &client, const char *tenant, const char *clientId);
 
 	// Generic Request Methods
 	bool requestJsonApi(JsonDocument &doc, const char *url, const char *payload = "", const char *method = "POST", bool sendAuth = false, GraphRequestHeader extraHeader = { NULL, NULL });
