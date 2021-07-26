@@ -61,6 +61,7 @@ bool ArduinoMSGraph::requestJsonApi(JsonDocument& responseDoc, const char *url, 
     if (https.begin(url, cert)) {
 		https.setConnectTimeout(10000);
 		https.setTimeout(10000);
+		https.useHTTP10(true);
 
 		// Send auth header?
 		if (sendAuth) {
